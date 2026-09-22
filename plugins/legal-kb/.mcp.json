@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "legal-kb": {
+      "type": "http",
+      "url": "https://law.tax-insight.kr/mcp"
+    }
+  }
+}
