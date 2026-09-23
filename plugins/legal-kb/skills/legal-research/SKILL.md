@@ -36,6 +36,15 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
 4. 조문으로 확인되지 않는 최신 사실만 남았을 때만 → web_search(query)
 ```
 
+### 직역을 알면 `domain` 을 넘긴다 (RAG-8202)
+
+사용자가 세무사·회계사·노무사·변리사·법무사·변호사라는 것을 알면 `research(query, domain="노무사")` 처럼 **직역 이름**을 넘긴다.
+`변호사` 는 전 분야라 기본값이 없다 — 넘기면 프로필도 보지 않고 질문 분류만 쓴다.
+"심사청구는 누구에게", "이의신청은 어디에" 같이 분야 단서가 없는 질문에서 그 직역 법령이 앞에 오고(세무사·회계사는 `related_tax_laws` 칸),
+질문에 분야 단서가 있으면 서버가 질문을 따르니 넘겨도 해가 없다. 모르면 넘기지 않는다 — 서버가 프로필 직역을 본다.
+코드 `tax` 는 "이 질문은 세법 질문" 이라는 뜻이라 프로필 대용으로 쓰지 않는다.
+인자 설명은 `references/tools.md` 의 "직역 기본값" 절.
+
 ### 1단계는 `research`다
 
 `research`는 검색 화면과 같은 파이프라인으로 **조문(statutes)과 판례·결정례(cases)를 한 번에**
@@ -98,6 +107,9 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
 - `[경고]`(구법)가 붙은 조문을 현행처럼 쓰지 않는다. 그 조문이 언제까지 유효했는지 함께 적는다.
 - `[대조]`(시행예정)는 **아직 시행되지 않았다**고 명시한다. 시행예정만 있으면 `get_article`이
   `not_in_force` 오류를 낸다 — `include_scheduled=true`로 다시 불러 "N년 M월 시행 예정"으로 쓴다.
+- 판례가 **구 조문 번호**로 판단했으면 그 번호로 `get_article`을 부른다. 응답의 `moved_to`가 현행 대응 조문이다
+  (`relation=successor`면 대응 조문, `related`면 관련 조문일 뿐). 현행 조문을 부르면 `moved_from`에 이어받은 구 조문이 온다.
+  "판례는 구 제N조로 판단했고, 현행 제M조에 해당한다"처럼 둘을 함께 적는다.
 
 ## 인용 형식
 
@@ -128,8 +140,8 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
 
 ## 슬래시 커맨드
 
-확정된 조회는 커맨드가 더 빠르다. `/legal-kb:research` · `/legal-kb:article` · `/legal-kb:decision`
-(각각 한글 별칭 `/legal-kb:법령` · `/legal-kb:조문` · `/legal-kb:판례`).
+확정된 조회는 커맨드가 더 빠르다. `/legal-kb:법령` (research) · `/legal-kb:조문` (get_article) · `/legal-kb:판례` (get_decision).
+영어 이름 커맨드는 없다.
 
 ## 더 볼 것
 
