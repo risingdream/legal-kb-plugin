@@ -28,6 +28,7 @@ Claude Desktop 은 설정 → 플러그인 → 추가 → 저장소에서 추가
 | `get_decision` | 사건번호로 판례·결정례 전문 |
 | `neighbors` | 본법↔시행령, 조문→판례 연결선 |
 | `web_search` | legal-kb 에 없는 최신 사실(올해 세율·고시·보도자료)만 |
+| `calculate` | 세액·과세표준·공제액 계산. 세율표는 조문에서 꺼내고, 법 숫자는 조문 근거를 확인한다 |
 
 ## 스킬 — 도구 사용법까지 같이 온다
 
@@ -66,4 +67,4 @@ claude plugin update legal-kb@legal-kb-plugin
 
 claude.ai 는 플러그인을 받지 않는다. 사용자 지정 → 커넥터 → 추가에서
 이름 `legal-kb`, URL `https://law.tax-insight.kr/mcp` 로 등록한다.
-도구 6종은 같고, 스킬·슬래시 커맨드는 붙지 않는다.
+도구 7종은 같고, 스킬·슬래시 커맨드는 붙지 않는다.
