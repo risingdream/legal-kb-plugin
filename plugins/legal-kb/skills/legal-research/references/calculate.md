@@ -46,15 +46,16 @@
 
 | id | 쓰는 곳 | inputs | 단계 |
 |---|---|---|---|
-| `acq.house_standard_rate` | 주택 유상취득 취득세 표준세율(지방세법 제11조①8). 2020-01-01 이후 6~9억 산식((가액×2/3억원−3)/100 → **비율** 소수 넷째자리 반올림, 7억 → 0.0167), 2013-12-26~2019-12-31 판은 1·2·3%. 세액 10원 미만 절사 | `price` 취득당시가액(지분 취득이면 전체 주택 가액) | `rate` · `acq_tax` |
+| `acq.house_standard_rate` | 주택 유상취득 취득세 표준세율(지방세법 제11조①8). 2020-01-01 이후 6~9억 산식((가액×2/3억원−3)/100 → **비율** 소수 넷째자리 반올림, 7억 → 0.0167), 2013-12-26~2019-12-31 판은 1·2·3%. 세액 10원 미만 절사 | `price` 취득당시가액(지분 취득이면 전체 주택 가액) | `rate` · `acq_tax` · `edu_tax`(지방교육세, 제151조①1: 취득세율×50%×20%) · `total`(감면 전 취득세+지방교육세, 농특세 제외) |
 | `cg.one_house` | 1세대 1주택 양도소득세(소득세법 제89조①3·제95조②·시행령 제160조). 비과세 요건 충족이면 양도차익 × (양도가액 − 기준금액)/양도가액만 과세(기준금액 **2021-12-08 양도분부터 12억원**(부칙 선시행), 2021-01-01~12-07 9억원). 장특공은 보유 3년 미만 0 · **거주 2년 이상 표2(보유+거주)** · 그 밖 표1. 기본공제 250만원·기본세율까지. 2021-01-01 이후 양도분 | `transfer_price` · `acquisition_price` · `expenses` · `acquired_on` · `transferred_on` · `residence_years`(보유기간 중 거주 만 연수) · `one_home_exempt`(비과세 요건 충족 1 / 미충족 0) | `gain` · `years` · `taxable_gain` · `ltd_rate` · `ltd` · `income` · `base` · `tax` |
 
 - 레시피 밖: 다주택·법인 중과(제13조의2)·고급주택·생애최초 감면·상속·증여·원시취득 → terms·steps 로 직접.
   중과 세율은 제11조①7나 1천분의 40 + 중과기준세율 × 배수라, 표준세율 레시피의 `rate` 에 가산하면 틀린다(경고 `recipe_scope`).
 - `cg.one_house` 밖: 1세대 1주택이 아닌 주택(다주택·중과)·보유 2년 미만(단기세율)·지분·부수토지 보유기간 상이·미등기 → terms·steps 로 직접.
   1세대 1주택 해당·비과세 요건·거주기간은 사실 판정이라 되묻고 inputs 로 준다. 다른 양도와 합산하면 `income` 뒤에 steps 를 붙인다(기본공제는 한 번만).
-- 지방교육세처럼 뒤 계산이 필요하면 같은 호출에 붙인다:
-  `{"recipe":"acq.house_standard_rate","inputs":{"price":800000000},"terms":{"half":{"value":"100분의 50",…,"cite":{"law":"지방세법","article":"제151조","paragraph":1}},"edu":{"value":"100분의 20",…}},"steps":[{"id":"edu_tax","label":"지방교육세","expr":"floor_10won(price * rate * half * edu)"}]}`
+- 지방교육세·합계는 레시피 단계(`edu_tax`·`total`)를 옮긴다. 같은 id 로 다시 붙이면 `invalid_args` 다. 감면·지분 안분을 steps 로 붙였으면 감면 후 납부 합계도 단계로 만든다.
+  국민주택규모(85㎡, 수도권 밖 읍·면 100㎡) 초과 주택의 농어촌특별세(농어촌특별세법 제5조①6, 이하는 제4조11 비과세)는 같은 호출에 붙인다(면적을 모르면 `total` 을 "85㎡ 이하 기준"으로 답한다):
+  `{"recipe":"acq.house_standard_rate","inputs":{"price":800000000},"terms":{"farm_base":{"value":"100분의 2",…,"cite":{"law":"농어촌특별세법","article":"제5조","paragraph":1}},"farm_ratio":{"value":"100분의 10",…}},"steps":[{"id":"farm_tax","label":"농어촌특별세","expr":"floor_10won(price * farm_base * farm_ratio)"},{"id":"grand_total","label":"납부 합계(농특세 포함)","expr":"total + farm_tax"}]}`
 - 거부: `recipe_not_found`(후보 `candidates`) · `missing_input` · `recipe_out_of_range`(정의 기간 밖 `as_of`).
 
 ## 식(`expr`)
@@ -100,6 +101,7 @@
 | `bracket_miss` | 어느 구간에도 안 걸려 0 | 입력·표 선택 확인 |
 | `recipe_scope` | 레시피에 범위 밖 계산(예: 표준세율 레시피 + 중과 가산)을 덧붙였다 | 해당하면 레시피 없이 terms·steps 로 다시 부른다. 해당하지 않으면 무시 |
 | `result_not_rounded` | 결과에 원 미만이 남았다 | 끝수 함수를 넣어 다시 부른다 |
+| `split_effective` | 인용 조문의 그 항·호가 부칙상 다른 날 시행된다 — `as_of` 판 문구가 아직 시행 전이거나, 이미 시행된 개정 문구가 뒤 판에만 있다 | 메시지의 시행일·근거 부칙을 답에 적는다. 개정 전·후 숫자가 다르면 `get_article` 로 맞는 판을 확인해 다시 부른다 |
 
 ### 거부 — 계산하지 않고 `isError`
 
