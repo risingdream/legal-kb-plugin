@@ -126,7 +126,7 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
    - 식 안에는 0·1·100·1000 외 숫자를 쓰지 않는다. 합성 세율은 구성 상수를 각각 terms 로
    - **레시피가 있으면 레시피로**: 주택 유상취득 취득세 표준세율(지방세법 제11조①8, 6~9억 산식)은 terms 를 짜지 말고
      `calculate({recipe:"acq.house_standard_rate", inputs:{price}, as_of: 취득일})` — 세율 끝수·판별 조문은 저장소 정의(위택스 대조)가 정한다.
-     지방교육세 등은 같은 호출에 steps 를 더 붙인다. 다주택 중과·감면·상속·증여는 레시피 밖
+     지방교육세 등은 같은 호출에 steps 를 더 붙인다. 다주택 중과·감면·상속·증여는 레시피 밖 — 중과(제13조의2)는 표준세율 `rate` 에 가산하지 말고 레시피 없이 계산한다(`recipe_scope` 경고)
      1세대 1주택 양도(고가주택 안분·장특공 표1/표2)는 `calculate({recipe:"cg.one_house", inputs:{…, residence_years, one_home_exempt}, as_of: 양도일})` — 12억/9억 기준일(2021-12-08)과 표 선택은 레시피가 정한다
 4. 오류(isError)면 code 대로 고쳐 다시 부른다. 경고는 get_article 로 확인해 고치거나 답에 그대로 옮긴다
    - 합성 세율(표준세율 + 중과기준세율 × 배수 등)을 한 숫자로 넘겨 `unverified_constant` 가 나면 구성 상수를 각각 terms 로 나눠 다시 부른다
@@ -141,7 +141,7 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
 **금액은 도구 결과만.** 단계표·결론의 모든 금액은 `calculate` 응답의 `steps[].value`·`result.value` 를 그대로 옮긴다.
 응답에 없는 금액(지방소득세·합계·차액 등)을 암산해 덧붙이지 않는다 — 답에 쓸 금액은 지방소득세·합계·중간값까지 처음부터 `steps` 에 단계로 넣는다.
 계산하지 않은 금액은 "약 ○원"·"참고로"·검산식(`a + b × c = d`) 형태로도 쓰지 않는다. 지방소득세·합계를 언급만 하려면 금액 없이 "별도(산출세액의 10%)"처럼 비율·근거만 적는다.
-누진공제액·적용 구간은 `progressive` 단계의 `detail`(`progressive_deduction`·`over`·`upto`)에 있으니 그 값만 옮긴다.
+누진공제액·구간 초과액·적용 구간은 `progressive` 단계의 `detail`(`progressive_deduction`·`excess`·`over`·`upto`)에 있으니 그 값만 옮긴다.
 시점 비교("작년이면?")는 `as_of` 를 바꿔 두 번 부른다.
 
 **경고는 숨기지 않는다.** `status: ok_with_warnings` 면 `warnings[]` 를 답의 "확인할 점"에 옮긴다.

@@ -50,6 +50,7 @@
 | `cg.one_house` | 1세대 1주택 양도소득세(소득세법 제89조①3·제95조②·시행령 제160조). 비과세 요건 충족이면 양도차익 × (양도가액 − 기준금액)/양도가액만 과세(기준금액 **2021-12-08 양도분부터 12억원**(부칙 선시행), 2021-01-01~12-07 9억원). 장특공은 보유 3년 미만 0 · **거주 2년 이상 표2(보유+거주)** · 그 밖 표1. 기본공제 250만원·기본세율까지. 2021-01-01 이후 양도분 | `transfer_price` · `acquisition_price` · `expenses` · `acquired_on` · `transferred_on` · `residence_years`(보유기간 중 거주 만 연수) · `one_home_exempt`(비과세 요건 충족 1 / 미충족 0) | `gain` · `years` · `taxable_gain` · `ltd_rate` · `ltd` · `income` · `base` · `tax` |
 
 - 레시피 밖: 다주택·법인 중과(제13조의2)·고급주택·생애최초 감면·상속·증여·원시취득 → terms·steps 로 직접.
+  중과 세율은 제11조①7나 1천분의 40 + 중과기준세율 × 배수라, 표준세율 레시피의 `rate` 에 가산하면 틀린다(경고 `recipe_scope`).
 - `cg.one_house` 밖: 1세대 1주택이 아닌 주택(다주택·중과)·보유 2년 미만(단기세율)·지분·부수토지 보유기간 상이·미등기 → terms·steps 로 직접.
   1세대 1주택 해당·비과세 요건·거주기간은 사실 판정이라 되묻고 inputs 로 준다. 다른 양도와 합산하면 `income` 뒤에 steps 를 붙인다(기본공제는 한 번만).
 - 지방교육세처럼 뒤 계산이 필요하면 같은 호출에 붙인다:
@@ -81,7 +82,7 @@
 |---|---|
 | `status` | `ok` · `ok_with_warnings` |
 | `result` | 마지막 단계 `{id, label, value}` |
-| `steps[]` | 단계별 `value` · `uses` · `detail`(걸린 구간 `row`·`over`·`upto`·세율 `rate_text`·누진공제액 `progressive_deduction`, 보유기간 기산일 `start`·만료일 `expiry`) |
+| `steps[]` | 단계별 `value` · `uses` · `detail`(걸린 구간 `row`·`over`·`upto`·세율 `rate_text`·누진공제액 `progressive_deduction`·구간 초과액 `excess`, 보유기간 기산일 `start`·만료일 `expiry`) |
 | `terms[]` | 입력 항목. `cite` 에 서버가 찾은 개정판 `enforced_from`, `verified`(`paragraph`·`article`·`false`·`null`) |
 | `tables[]` | 꺼낸 세율표. `from.enforced_from` 이 단계표 근거의 시행일이다 |
 | `warnings[]` | `{code, term?, step?, message, found_in?}` |
@@ -97,6 +98,7 @@
 | `table_inconsistent` | 누진표 검산 실패(파싱 의심) | 수동 표로 다시 |
 | `table_row_condition` | 표 행에 단서(예: 보유 3년 이상 한정)가 붙어 있다 | 조건을 사실과 대조해 답에 적는다 |
 | `bracket_miss` | 어느 구간에도 안 걸려 0 | 입력·표 선택 확인 |
+| `recipe_scope` | 레시피에 범위 밖 계산(예: 표준세율 레시피 + 중과 가산)을 덧붙였다 | 해당하면 레시피 없이 terms·steps 로 다시 부른다. 해당하지 않으면 무시 |
 | `result_not_rounded` | 결과에 원 미만이 남았다 | 끝수 함수를 넣어 다시 부른다 |
 
 ### 거부 — 계산하지 않고 `isError`
