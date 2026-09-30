@@ -113,6 +113,14 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
   (`relation=successor`면 대응 조문, `related`면 관련 조문일 뿐). 현행 조문을 부르면 `moved_from`에 이어받은 구 조문이 온다.
   "판례는 구 제N조로 판단했고, 현행 제M조에 해당한다"처럼 둘을 함께 적는다.
 
+## 법률과 무관한 질문 — 조회하지 않는다
+
+산수·단위 환산·날짜 계산·일반 상식·인사·코드처럼 법령 근거가 필요 없는 질문에는 `research`·`search_legal`·`get_article`·`get_decision`·`neighbors` 를 부르지 않는다.
+
+- **산수도 `calculate`**: 세금이 아니어도 계산은 암산하지 않고 `calculate` 로 한다. 숫자는 모두 `terms` 에 `source:"user"` 로 넣고 `expression` 에는 변수만 쓴다(식에 숫자를 쓰면 `uncited_constant` 로 거부된다). 법 숫자가 없으면 `cite` 도 없다.
+  예: `calculate({terms:{a:{value:234234234, label:"첫째 수", source:"user"}, b:{value:234234234, label:"둘째 수", source:"user"}}, expression:"a * b", label:"곱"})`
+- 조회한 자료가 질문과 무관하면 답에 쓰지 않는다. "조회 결과는 계산과 무관했다" 같은 **도구·조회 과정에 대한 해명도 쓰지 않는다**.
+
 ## 세액 계산 — 금액은 `calculate` 로만
 
 세액·과세표준·공제액처럼 **금액을 답해야 하는 질문**은 근거를 찾은 뒤 `calculate` 로 계산한다.
@@ -121,7 +129,9 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
 ```
 1. research(query, as_of) → 필요하면 get_article 로 세율표·공제율·끝수 조문을 확인한다
 2. 사실 판정이 필요하면 계산하기 전에 되묻는다 (아래)
-3. calculate(terms, steps, as_of)
+3. calculate(terms, steps, as_of) — **완성된 steps 로 한 번에**
+   - 근거 조문을 다 확인한 뒤, 답에 쓸 단계(지방소득세·합계·중간값 포함)를 모두 넣어 1회 부른다. 조금씩 나눠 여러 번 부르지 않는다
+   - 다시 부르는 건 오류(isError)·경고를 고칠 때, 요건 판정 결과로 계산 경로가 갈릴 때, 시점 비교(as_of 를 바꿔 두 번)일 때뿐이다
    - 사용자 사실(가액·날짜·면적): {value, label, source:"user"}
    - 법 숫자(공제액·세율·한도): {value, label, source:"law", cite:{law, article, paragraph, item}}
    - 세율표: {label, table_from:{law, article, paragraph, item, table, column}} — 손으로 옮기지 않는다
@@ -130,6 +140,9 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
      `calculate({recipe:"acq.house_standard_rate", inputs:{price}, as_of: 취득일})` — 세율 끝수·판별 조문은 저장소 정의(위택스 대조)가 정한다.
      레시피가 지방교육세(`edu_tax`)·납부 합계(`total`, 감면 전 취득세+지방교육세)까지 준다 — 다시 계산하거나 본문에서 더하지 말고 옮긴다. 감면·지분 단계를 붙였으면 감면 후 합계도 steps 로. 85㎡ 초과 농어촌특별세는 notes 식대로 steps 를 붙여 합계도 단계로. 다주택 중과·감면·상속·증여는 레시피 밖 — 중과(제13조의2)는 표준세율 `rate` 에 가산하지 말고 레시피 없이 계산한다(`recipe_scope` 경고)
      1세대 1주택 양도(고가주택 안분·장특공 표1/표2)는 `calculate({recipe:"cg.one_house", inputs:{…, residence_years, one_home_exempt}, as_of: 양도일})` — 12억/9억 기준일(2021-12-08)과 표 선택은 레시피가 정한다
+     종합소득 결손금·이월결손금 공제 순서(원천징수 이자·배당 제외)는 terms·steps 를 짜지 말고 `calculate({recipe:"pit.loss_order", inputs:{business, rental, wage, pension, other, interest, dividend, withholding_fin, carryforward, rental_cf}, as_of: 과세기간 말일})`. 빠진 소득은 0. 분리과세(2천만원 이하) 금융은 `withholding_fin` 에 넣지 않음. 결과 `total` 은 종합소득금액. 기본공제·연금보험료는 뒤에 steps. 산출세액 끝수는 `floor_won`
+     금융소득 종합과세(2천만원·배당가산 10%·비교과세)는 terms·steps 를 짜지 말고 `calculate({recipe:"pit.financial_global", inputs:{interest, interest_nonbiz, dividend_ex, dividend, other_income, income_deduction}, as_of: 과세기간 말일})`. 빠진 칸은 0. 2천만원 이하는 합산하지 않음. 충전 순서 이자→가산 제외 배당→가산 대상 배당. 제62조 제1호=(과세표준−2천만원)×기본세율+2천만원×14%, 제2호=금융×제129조 세율(비영업대금 25%·그 밖 14%)+다른 소득 산출세액. 가산율 100분의 10. 외국법인 등 가산 제외 배당은 `dividend_ex`. ISA 비과세·고배당 특례는 inputs 에 넣지 않음. 끝수는 `floor_won`
+     상속 배우자공제(하한 5억·한도 30억)·일괄공제는 terms·steps 를 짜지 말고 `calculate({recipe:"inh.spouse_deduction", inputs:{spouse_actual, estate, bequest, added_gift, spouse_share, prior_gift, personal, spouse_only}, as_of: 상속개시일})`. 공제=max(5억원, min(실제액, 산식, 30억원)). 실제≥5억이어도 산식이 5억 미만이면 하한 5억원. `estate` 는 채무·공과금·비과세·불산입 차감 후(상증령 제17조①)
 4. 오류(isError)면 code 대로 고쳐 다시 부른다. 경고는 get_article 로 확인해 고치거나 답에 그대로 옮긴다
    - 합성 세율(표준세율 + 중과기준세율 × 배수 등)을 한 숫자로 넘겨 `unverified_constant` 가 나면 구성 상수를 각각 terms 로 나눠 다시 부른다
 5. 답: 단계표(항목 · 값 · 근거 조문+시행일) → 결과 → 가정·경고
@@ -164,8 +177,10 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
 
 - 조문: **「법령명」 제N조 제M항** + **시행일**
   예) 「민법」 제839조의2 (2014. 10. 30. 시행) / 「소득세법」 제89조 제1항 제3호 (2024. 1. 1. 시행)
-- 판례·결정례: **사건번호 + 선고일(결정일)**
-  예) 대법원 2019. 8. 30. 선고 2019두31600 판결 / 조심 2020서1582 (2021. 3. 11.)
+- 판례: **법원 + 선고일 + 사건번호** — research `cases[].cite` 를 그대로 옮긴다
+  예) 대법원 2019. 8. 30. 선고 2019두31600 판결 / 서울고등법원 2025. 1. 15. 선고 2024누64439 판결
+  하급심은 `title` 이 판시 요지라 법원이 `court`(get_decision 은 `court`)에만 있다. 같은 사건을 다시 적을 때도 사건번호만 따로 쓰지 않는다.
+- 결정례: **번호 + 결정일** 예) 조심 2020서1582 (2021. 3. 11.)
 - 시행령·시행규칙은 본법과 구분해 적는다. 「소득세법 시행령」 제154조는 「소득세법」이 아니다.
 
 ## 하지 않을 것

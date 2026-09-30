@@ -43,16 +43,23 @@
 
 골든셋에서 반복해 틀린 계산만 저장소 YAML(`go-server/internal/legalcalc/recipes/`)로 고정했다. 법 숫자·cite·끝수는
 정의에 있고, `as_of` 로 시행 기간 판을 고른 뒤 같은 엔진(상수 검증 포함)으로 계산한다. 응답 `recipe` 에 id·판 기간·`notes`(적용 범위·주의)가 온다.
+아래 표의 id(`pit.loss_order` · `pit.financial_global` · `inh.spouse_deduction` 포함)는 **terms·steps 로 식을 다시 짜지 않는다.** 조문을 읽은 뒤 직접 짜면 공제 순서·배당가산 순차·배우자공제 5억 하한이 빠진다.
 
 | id | 쓰는 곳 | inputs | 단계 |
 |---|---|---|---|
 | `acq.house_standard_rate` | 주택 유상취득 취득세 표준세율(지방세법 제11조①8). 2020-01-01 이후 6~9억 산식((가액×2/3억원−3)/100 → **비율** 소수 넷째자리 반올림, 7억 → 0.0167), 2013-12-26~2019-12-31 판은 1·2·3%. 세액 10원 미만 절사 | `price` 취득당시가액(지분 취득이면 전체 주택 가액) | `rate` · `acq_tax` · `edu_tax`(지방교육세, 제151조①1: 취득세율×50%×20%) · `total`(감면 전 취득세+지방교육세, 농특세 제외) |
 | `cg.one_house` | 1세대 1주택 양도소득세(소득세법 제89조①3·제95조②·시행령 제160조). 비과세 요건 충족이면 양도차익 × (양도가액 − 기준금액)/양도가액만 과세(기준금액 **2021-12-08 양도분부터 12억원**(부칙 선시행), 2021-01-01~12-07 9억원). 장특공은 보유 3년 미만 0 · **거주 2년 이상 표2(보유+거주)** · 그 밖 표1. 기본공제 250만원·기본세율까지. 2021-01-01 이후 양도분 | `transfer_price` · `acquisition_price` · `expenses` · `acquired_on` · `transferred_on` · `residence_years`(보유기간 중 거주 만 연수) · `one_home_exempt`(비과세 요건 충족 1 / 미충족 0) | `gain` · `years` · `taxable_gain` · `ltd_rate` · `ltd` · `income` · `base` · `tax` |
+| `pit.loss_order` | 종합소득 결손금·이월결손금 공제 순서(소득세법 제45조). 당해 사업결손은 근로→연금→기타→이자→배당, 이월은 사업→근로→연금→기타→이자→배당. **종합과세 원천징수세율분은 `withholding_fin`**(⑤ 전단, 공제하지 않고 종합에만 합산). **분리과세(2천만원 이하) 금융은 넣지 않음.** 기본세율분 중 공제하지 않기로 한 금액(⑤ 후단)은 `withholding_fin` 에 합산. 부동산임대(주거용 제외) 결손은 다른 소득에서 공제하지 않고, 그 이월은 임대소득에서만(②·③2). 당해 임대결손 이월액은 `rental_loss`. 당해 결손 먼저(⑥). 2021-01-01 이후(법률 제17758호) | `business` · `rental` · `wage` · `pension` · `other` · `interest`(기본세율분) · `dividend`(기본세율분) · `withholding_fin` · `carryforward`(기간 내면 금액, 지났으면 0) · `rental_cf` | `cur_loss` · `rental_loss` · `leftover_current` · `leftover_cf` · `total`(결손 공제 후 종합소득금액) |
+| `pit.financial_global` | 금융소득 종합과세(제14조③6·④·제17조③·제56조·제62조). 이자+가산 제외 배당+가산 대상 배당(가산액 제외) **2천만원 이하**면 합산하지 않음. 초과면 이자(비영업대금 포함)→가산 제외 배당→가산 대상 배당 순으로 기준금액을 채운 뒤 남은 가산 대상 배당에만 **100분의 10** 가산. **제1호** =(과세표준−2천만원)×기본세율 + 2천만원×14%. **제2호** = 금융×제129조 세율(비영업대금 25%·그 밖 14%) + 다른 종합소득 산출세액. 큰 금액이 산출세액. 배당세액공제 = min(가산액, 산출세액−제2호). 끝수 `floor_won`. 2024-01-01~2026-12-31 | `interest`(14%) · `interest_nonbiz`(비영업대금 25%) · `dividend_ex`(가산 제외) · `dividend`(가산 대상, 가산 전) · `other_income` · `income_deduction` | `financial` · `global_yn` · `gross_up` · `tax_1` · `tax_2` · `tax_calc` · `div_credit` · `tax`(배당세액공제 후) |
+| `inh.spouse_deduction` | 상속 배우자공제·일괄공제(상속세 및 증여세법 제19조·제21조). 공제 = **max(5억원, min(실제액, 산식 한도, 30억원))**. 일괄공제는 기초+인적(`personal`)과 5억원 중 큰 금액, **배우자 단독상속이면 일괄 5억원 불가**. `estate`(산식 A)는 채무·공과금·비과세·불산입 차감 후(상증령 제17조①). 분할기한 미이행·무신고는 실제액 0→하한 5억. 제24조 종합한도는 레시피 밖. 2025-10-01 이후 | `spouse_actual` · `estate` · `bequest` · `added_gift` · `spouse_share` · `prior_gift` · `personal`(제18조 2억+제20조) · `spouse_only`(1/0) | `formula` · `cap` · `spouse_deduction` · `chosen_personal` · `total` |
 
 - 레시피 밖: 다주택·법인 중과(제13조의2)·고급주택·생애최초 감면·상속·증여·원시취득 → terms·steps 로 직접.
   중과 세율은 제11조①7나 1천분의 40 + 중과기준세율 × 배수라, 표준세율 레시피의 `rate` 에 가산하면 틀린다(경고 `recipe_scope`).
 - `cg.one_house` 밖: 1세대 1주택이 아닌 주택(다주택·중과)·보유 2년 미만(단기세율)·지분·부수토지 보유기간 상이·미등기 → terms·steps 로 직접.
   1세대 1주택 해당·비과세 요건·거주기간은 사실 판정이라 되묻고 inputs 로 준다. 다른 양도와 합산하면 `income` 뒤에 steps 를 붙인다(기본공제는 한 번만).
+- `pit.loss_order` 밖: 총수입−필요경비·근로소득공제·추계신고(제45조④). 기간이 지난 이월은 0으로 준다. `total` 뒤에 종합소득공제·산출세액(`floor_won`)을 붙인다. 일반 사업 결손을 같은 해 부동산임대 소득과 먼저 통산하는지는 쟁점(미확정) — 레시피는 제45조① 문언대로 근로부터 공제한다.
+- `pit.financial_global` 밖: 조세특례제한법 제104조의27 고배당 특례배당·출자공동사업자 배당 25%. 지방소득세는 뒤에 steps. 가산 제외 배당은 `dividend_ex`, 비영업대금은 `interest_nonbiz`.
+- `inh.spouse_deduction` 밖: 제20조 인적공제 해당 여부·감정평가 등 그 밖의 공제(제23조 이하)·제24조 종합한도. 법정상속분과 `personal`(기초+인적)은 사실 입력이다.
 - 지방교육세·합계는 레시피 단계(`edu_tax`·`total`)를 옮긴다. 같은 id 로 다시 붙이면 `invalid_args` 다. 감면·지분 안분을 steps 로 붙였으면 감면 후 납부 합계도 단계로 만든다.
   국민주택규모(85㎡, 수도권 밖 읍·면 100㎡) 초과 주택의 농어촌특별세(농어촌특별세법 제5조①6, 이하는 제4조11 비과세)는 같은 호출에 붙인다(면적을 모르면 `total` 을 "85㎡ 이하 기준"으로 답한다):
   `{"recipe":"acq.house_standard_rate","inputs":{"price":800000000},"terms":{"farm_base":{"value":"100분의 2",…,"cite":{"law":"농어촌특별세법","article":"제5조","paragraph":1}},"farm_ratio":{"value":"100분의 10",…}},"steps":[{"id":"farm_tax","label":"농어촌특별세","expr":"floor_10won(price * farm_base * farm_ratio)"},{"id":"grand_total","label":"납부 합계(농특세 포함)","expr":"total + farm_tax"}]}`
@@ -69,7 +76,7 @@
 | `bracket_lookup(table, x)` | x 가 속한 구간의 값(공제율·세율·금액) |
 | `floor_won(x)` · `floor_10won(x)` · `floor_to(x, unit)` | 원 미만 · 10원 미만 · unit 원 미만 절사 |
 | `round_half_up(x, places)` | 소수 places 자리 사사오입 |
-| `min(a, b, …)` · `max(a, b, …)` | 한도 적용 |
+| `min(a, b, …)` · `max(a, b, …)` | 한도 적용. '0 미만이면 0' 은 `max(0, a - b)` (삼항으로 우회하지 않는다) |
 | `pct(n)` · `permille(n)` | n/100 · n/1000. 이미 비율인 값(`"20%"`·`"20/100"`)에 또 씌우지 않는다 |
 | `full_years(from, to, "civil"\|"inclusive")` | 만 연수. 기본 civil(초일 불산입) |
 | `prorate(amount, part, whole)` | 안분 |

@@ -66,5 +66,6 @@ claude plugin update legal-kb@legal-kb-plugin
 ## claude.ai 웹 채팅
 
 claude.ai 는 플러그인을 받지 않는다. 사용자 지정 → 커넥터 → 추가에서
-이름 `legal-kb`, URL `https://law.tax-insight.kr/mcp` 로 등록한다.
+이름 `legal-kb`, URL `https://chat.taxdesk.kr/mcp` 로 등록한다.
+옛 주소 `https://law.tax-insight.kr/mcp` 로 등록한 연결도 계속 동작한다(다시 등록할 필요 없음).
 도구 7종은 같고, 스킬·슬래시 커맨드는 붙지 않는다.
