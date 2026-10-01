@@ -73,25 +73,27 @@
 |---|---|---|---|
 | 1 | 취득 당시 실지거래가액을 모름 | `cg.converted_acquisition` | `expenses` 단계(환산취득가액 포함 필요경비 전체)를 다음 레시피에 `acquisition_price` 0·`expenses`=그 값. 신축·증축 5년 내면 `surcharge` 단계(가산세)를 따로 더한다 |
 | 2a | 1세대 1주택 비과세·고가주택 | `cg.one_house` | 겸용·부수토지·보유기간 상이는 선택 입력 |
-| 2b | 그 밖의 양도(단기·미등기·비사업용·분양권·비교과세) | `cg.rate_select` | 다주택이면 `cg.house_surcharge` 결과 `surcharge`(0·0.2·0.3)를 입력으로 — 2단 호출. 중과 유예는 양도일 판(2022-05-10~2026-05-09, 2026-05-10 이후는 `contract_date`) |
+| 2b | 그 밖의 양도(단기·미등기·비사업용·분양권) | `cg.rate_select` | 조합원입주권은 `is_union_right`=1 + 인가 전 토지·건물분 양도차익 `union_pre_gain`(장특공은 이 금액에만 표1 율, 0이면 공제 0). 지상권·전세권·부동산임차권·취득권·이용권은 `is_other_right`=1(장특공 0). 다주택이면 `cg.house_surcharge` 결과 `surcharge`(0·0.2·0.3, 2018-04-01~2021-05-31 양도는 0.1·0.2)를 입력으로 — 2단 호출. 중과 유예는 양도일 판(2019-12-17~2020-06-30 보유 10년 이상, 2022-05-10~2026-05-09, 2026-05-10 이후는 `contract_date`). 2018-01-01~2021-05-31 조정대상지역 분양권은 `presale_regulated`=1(50%). 2018-01-01 전 양도는 판이 없다 |
 | 3 | 증여받은 자산을 5년(2023-01-01 전 증여분)·10년 안에 양도 | `cg.carryover` | 이월과세·일반 두 경로를 모두 계산, 이월과세 세액이 더 적으면 일반 경로(`applied`). 증여세 상당액은 필요경비 |
 | 3 | 부담부증여 | `cg.burdened_gift` | 채무 인수분만 양도. 증여세 몫도 단계로 나온다 |
 | 3 | 주식 | `cg.stock` | 두 묶음 A·B, 대주주·중소기업·국외주식·단기 플래그. 묶음별 가장 이른 양도일 `transferred_a`·`transferred_b` 를 준다. 레시피가 먼저 양도한 묶음부터 기본공제를 뺀다(제103조②, 같은 날이면 세율이 높은 묶음 먼저). 공제 순서를 따로 넣지 않는다 |
 | 3 | 국외 부동산 | `cg.foreign` | 원화 환산 금액, `resident_5y`(국외 5년 거주) |
+| 3 | 파생상품 | `cg.derivative` | 판 2018-04-01~. `gain` = 과세기간 계약별 손익 합계(직접 비용 반영, 순손실이면 음수). 탄력세율 10%(시행령 제167조의9, 법 본문 20% 아님)·기본공제 250만원은 주식과 별도 |
 | 4 | 자경농지·대토·공익사업 감면 | `cg.reduction` | `art69`·`art70`·`art77` 플래그, 앞 단계의 `tax`·`base`·감면소득 |
-| 5 | 같은 해 여러 건 | `cg.annual` | 슬롯 a·b·c, **한 호출 = 한 소득 그룹**(부동산 등/주식), 자산별 소득금액은 앞 레시피 `income`. 기본공제 250만원은 그룹당 1회 |
+| 5 | 같은 해 여러 건 | `cg.annual` | 판 2018-01-01~. 슬롯 a~f(6건, b~f 생략 가능), **한 호출 = 한 소득 그룹**(부동산 등/주식), 자산별 소득금액은 앞 레시피 `income`. 기본공제 250만원은 그룹당 1회. 부동산 등 그룹에서 둘 이상 양도하면 제104조⑤ 비교과세(합산 기본세율 `tax_cmp` vs 자산별 합계 `tax_sep` 중 큰 쪽)를 `tax` 가 반영 — 주식·파생·신탁은 `compare: 0`. 중과·비사업용 토지는 rate 0 + `add_x`(0.1·0.2·0.3) |
+| 6 | 결정세액·납부할 세액·가산세·지방소득세 | `cg.settle` | `tax`=산출세액(`cg.annual` 의 `tax`), `reduction_tax`=`cg.reduction` 감면세액, `prelim_a`·`b`·`c`=예정신고 기납부세액(넷 이상은 합산), 가산세 사실 `filing_kind`·`late_days`. `as_of` 는 납부일. 단계 `determined`(결정세액)·`payable`(납부할 세액, 기납부가 크면 음수=환급)·`local_tax`·`total_amount`. 기납부가 있으면 `cg.annual` 산출세액에서 빼지 말고 여기서 뺀다 |
 
 사실 판정(1세대 1주택·중과 배제 주택·대주주·중소기업·거주기간·취득 사유)은 도구가 하지 않는다 — 질문에 적힌 사실로 판단해 inputs 로 준다. 적히지 않은 항목(기본공제 사용 여부·다른 양도·국외 5년 거주 등)은 해당 없음으로 가정해 바로 계산하고 가정을 답에 적는다. 계산 전에 되묻지 않는다.
 
 ## 식(`expr`)
 
 사칙연산 · 비교 · `&&` `||` · 삼항 `c ? a : b` 와 아래 함수만 쓴다.
-**식 안 숫자는 0·1·100·1000 만** 허용한다. 그 밖의 숫자는 terms 로 빼고 cite 를 단다(`uncited_constant`).
+**식 안 숫자는 0·1·100·1000 만** 허용한다(`uncited_constant`). 사례 금액·인원(2명)·연수·개월 수(12)도 terms 로 빼서 이름으로 쓴다 — 사실이면 `source:"user"`(cite 없음), 법에 적힌 숫자면 `source:"law"` + cite. 세율표 구간 숫자는 옮겨 적지 말고 `table_from` 으로 꺼낸다.
 
 | 함수 | 뜻 |
 |---|---|
-| `progressive(base, table)` | 누진세액 = 구간 기본세액(`base_tax`) + 초과분 × 세율. 끝수 처리 안 함 |
-| `bracket_lookup(table, x)` | x 가 속한 구간의 값(공제율·세율·금액) |
+| `progressive(base, table)` | 누진세액 = 구간 기본세액(`base_tax`) + 초과분 × 세율. 끝수 처리 안 함. 근로·연금소득공제표(소득세법 제47조·제47조의2)도 이 함수 |
+| `bracket_lookup(table, x)` | x 가 속한 구간의 값(공제율·세율·금액). 두 표 함수는 인자 순서를 바꿔 써도 된다 |
 | `floor_won(x)` · `floor_10won(x)` · `floor_to(x, unit)` | 원 미만 · 10원 미만 · unit 원 미만 절사 |
 | `round_half_up(x, places)` | 소수 places 자리 사사오입 |
 | `min(a, b, …)` · `max(a, b, …)` | 한도 적용. '0 미만이면 0' 은 `max(0, a - b)` (삼항으로 우회하지 않는다) |
@@ -132,7 +134,7 @@
 
 `invalid_expression`(`at` 에 위치) · `float_literal` · `unknown_name` · `type_error` · `missing_cite` · `missing_label` ·
 `missing_source` · `uncited_constant` · `table_not_found`(후보 `candidates`) · `table_unparsed`(표 원문) ·
-`div_by_zero` · `date_order` · `limits` · 레시피 `recipe_not_found` · `missing_input` · `recipe_out_of_range`. 코드대로 고쳐 다시 부른다.
+`div_by_zero` · `date_order` · `limits` · 레시피 `recipe_not_found` · `missing_input` · `recipe_out_of_range`. 코드대로 고쳐 다시 부른다. 오류가 여럿이면 message 에 "입력 오류 N건" 으로 모두 나열되니 한 번에 고친다.
 
 ## 예시 1 — 비사업용토지 양도소득 산출세액
 
