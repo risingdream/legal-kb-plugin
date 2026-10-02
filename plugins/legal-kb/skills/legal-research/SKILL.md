@@ -34,6 +34,7 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
    └ research가 비었거나 키워드만 훑고 싶다 → search_legal(query)
 3. 조문↔시행령, 조문→판례 연결이 더 필요할 때만 → neighbors(..., expand=true)
 4. 조문으로 확인되지 않는 최신 사실만 남았을 때만 → web_search(query)
+   신고서·서식 칸 작성, 신고·납부 절차, 기한·제출 서류, 실무 예시를 묻는 실무 질문이면 → search_commentary(query)
 5. 계산에 넣을 부동산 공시가격·면적·지목·용도가 질문에 없으면 → property_lookup(address|pnu, years)
 6. 대장 발급본(공적 증명 PDF)이 꼭 필요할 때만 → property_issue(kind, address|pnu) — 값만 필요하면 5번으로 충분하다
 ```
@@ -103,6 +104,16 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
 최신 사실이 남을 때만** 웹을 부른다. 한 질문에 한 번이면 충분하다(+3초).
 웹 결과가 조문과 어긋나면 **조문을 따른다.** 출처가 블로그·기사일 수 있다.
 
+## `search_commentary` — 실무 질문에서만
+
+`search_commentary` 는 국세청 책자·법령 해설(2차 문헌)을 찾는다. `research` 에는 해설이 붙지 않는다.
+조문형 골든셋 128문항에서 해설을 늘 붙였을 때 답 품질은 그대로이고 비용만 +28% 였다(RAG-9035).
+
+- **부른다**: 신고서·서식의 어느 칸에 무엇을 적는지, 신고·납부 절차와 기한, 제출 서류, 실무 계산 예시처럼 조문만으로 답하기 어려운 질문.
+- **부르지 않는다**: 조문 내용·요건·세율·비과세 여부·판례를 묻는 질문 — `research`·`get_article` 로 충분하다.
+- 결론의 근거는 법령·판례로 쓴다. 해설은 `citation`(제목(판) 쪽)을 그대로 옮겨 **참고로만** 인용한다. `excerpt` 밖의 본문을 지어내지 않는다.
+- 관련 조문을 이미 알면 `law_name`·`article_no` 를, 귀속연도가 있으면 `year` 를 넘긴다. 인자는 [`references/tools.md`](references/tools.md).
+
 ## 근거 충돌과 후속 답변
 
 - 공포일과 시행일을 구분해 적는다. 부칙 적용례·경과조치가 정한 발생일·행위일 조건을 확인한다.
@@ -152,15 +163,24 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
    - 식 안에는 0·1·100·1000 외 숫자를 쓰지 않는다. 합성 세율은 구성 상수를 각각 terms 로
    - **레시피가 있으면 레시피로**: 주택 유상취득 취득세 표준세율(지방세법 제11조①8, 6~9억 산식)은 terms 를 짜지 말고
      `calculate({recipe:"acq.house_standard_rate", inputs:{price}, as_of: 취득일})` — 세율 끝수·판별 조문은 저장소 정의(위택스 대조)가 정한다.
-     레시피가 지방교육세(`edu_tax`)·납부 합계(`total`, 감면 전 취득세+지방교육세)까지 준다 — 다시 계산하거나 본문에서 더하지 말고 옮긴다. 감면·지분 단계를 붙였으면 감면 후 합계도 steps 로. 85㎡ 초과 농어촌특별세는 notes 식대로 steps 를 붙여 합계도 단계로. 다주택·법인 중과(제13조의2①)는 표준세율 `rate` 에 가산하지 말고 `calculate({recipe:"acq.house_heavy", inputs:{price, houses: 취득 후 1세대 주택 수, regulated: 조정대상지역 1|0, corporate: 법인 1|0, exempt: 중과 제외 1|0, over_85: 85㎡ 초과 1|0}, as_of: 취득일})` — 중과 판별·세율·지방교육세(0.4%)·농특세·`total` 을 레시피가 낸다(중과가 아니면 표준세율). 감면·상속·증여는 레시피 밖
-     주택분 재산세는 `calculate({recipe:"prop.house", inputs:{price: 주택 전체 공시가격, one_house: 1|0, share: "67/100"(단독이면 생략), urban: 1|0}, as_of: 그 해 6월 1일})`. 공동소유는 **주택 전체 과세표준에 누진세율 → 지분 안분**(지방세법 제113조③) — 지분별 과세표준에 세율을 따로 적용하지 않는다. 소유자마다 share 만 바꿔 부른다. 도시지역분은 1천분의 1.4(`"1.4/1000"`, 0.14%)이지 1.4% 가 아니다. 1세대 1주택 공정시장가액비율 43·44·45%·특례세율(9억원 이하만)·지방교육세는 레시피가 정한다. 과세표준상한(제110조 제3항)·토지·건축물분은 레시피 밖
+     레시피가 지방교육세(`edu_tax`)·납부 합계(`total`, 감면 전 취득세+지방교육세)까지 준다 — 다시 계산하거나 본문에서 더하지 말고 옮긴다. 감면·지분 단계를 붙였으면 감면 후 합계도 steps 로. 85㎡ 초과 농어촌특별세는 notes 식대로 steps 를 붙여 합계도 단계로. 다주택·법인 중과(제13조의2①)는 표준세율 `rate` 에 가산하지 말고 `calculate({recipe:"acq.house_heavy", inputs:{price, houses: 취득 후 1세대 주택 수, regulated: 조정대상지역 1|0, corporate: 법인 1|0, exempt: 중과 제외 1|0, over_85: 85㎡ 초과 1|0}, as_of: 취득일})` — 중과 판별·세율·지방교육세(0.4%)·농특세·`total` 을 레시피가 낸다(중과가 아니면 표준세율). 상속·증여·원시취득(신축)과 토지·상가 등 주택 외 부동산은 `calculate({recipe:"acq.by_cause", inputs:{price: 과세표준, cause: 1 상속|2 증여 등 무상|3 원시취득|7 그 밖 유상, house, over_85, …}, as_of: 취득일})` — 증여 중과(제13조의2②)·상속 1가구 1주택 특례(제15조①2)도 판별한다. 감면은 레시피 밖
+     자동차·선박·기계장비·회원권 취득세는 `calculate({recipe:"acq.movable", inputs:{price, item, sub, light, auto124, std_value}, as_of: 취득일})`. 자동차(제124조) 취득세에는 지방교육세·농특세가 없다 — total 을 그대로 옮긴다. 감면(경차·다자녀 등)은 acq_tax 를 받아 계산한다
+     취득세 감면(생애최초·출산·서민주택·자경농민·경차·다자녀·장애인·국가유공자·전기·수소차)은 감면 전 레시피의 `acq_tax`·`edu_tax`·`farm_tax` 를 `calculate({recipe:"acq.relief", inputs:{code, tax, edu, farm, over_85, share, prior_tax}})` 에 넣는다. 면제여도 열거 밖 조문은 산출 200만원 초과 시 85% 만 감면(최소납부). 정액 공제형의 지방교육세는 미확인이라 `edu_tax`·`edu_alt` 를 함께 안내한다
+     주택분 재산세는 `calculate({recipe:"prop.house", inputs:{price: 주택 전체 공시가격, one_house: 1|0, share: "67/100"(단독이면 생략), urban: 1|0, prior_price: 작년 공시가격}, as_of: 그 해 6월 1일})`. 공동소유는 **주택 전체 과세표준에 누진세율 → 지분 안분**(지방세법 제113조③) — 지분별 과세표준에 세율을 따로 적용하지 않는다. 소유자마다 share 만 바꿔 부른다. 도시지역분은 1천분의 1.4(`"1.4/1000"`, 0.14%)이지 1.4% 가 아니다. 1세대 1주택 공정시장가액비율 43·44·45%·특례세율(9억원 이하만)·지방교육세는 레시피가 정한다. 과세표준상한(제110조③)은 `prior_price`(작년 시가표준액, 작년 고지서의 과세표준 아님)를 줄 때만 반영된다 — 질문에 없고 주소가 있으면 `property_lookup(years: [과세연도, 직전 연도])` 의 직전 연도 `official_prices.house` 를 넣는다. 조회도 안 되면 생략하고 답에 "과세표준상한 미반영, 작년 공시가격(작년 고지서·위택스 과세내역·부동산공시가격알리미)을 알면 세액이 줄 수 있다"고 적는다. 토지·건축물분은 아래 `prop.land`·`prop.building`
      1세대 1주택 양도(고가주택 안분·장특공 표1/표2)는 `calculate({recipe:"cg.one_house", inputs:{…, residence_years, one_home_exempt}, as_of: 양도일})` — 12억/9억 기준일(2021-12-08)과 표 선택은 레시피가 정한다
+     양도세 감면은 산출세액 × 감면율로 끝내지 말 것: 조특법 세액감면은 `cg.relief`(편입일·임대기간·대토 비율 안분 + 제133조 그룹 한도 + 조문별 농특세), 2013 신축·2009 미분양 주택(제99조의2·제98조의3)은 취득 5년 경과 시 소득공제라 `cg.relief_deduct`, 임대사업자 장기보유특별공제 70%·추가공제는 `cg.rental_ltd`(70% 는 임대기간 양도차익에만). 표에 없는 감면은 `cg.reduction` 에 율을 직접 준다
+     토지·건축물분 재산세도 레시피다(terms·steps 로 짜지 않는다): 토지 `calculate({recipe:"prop.land", inputs:{price: 개별공시지가×면적, kind: 1 종합합산|2 별도합산|3 분리 전·답·과수원·목장용지·임야|4 분리 골프장·고급오락장|5 분리 그 밖, urban: 1|0, prev_tax, prev_urban}, as_of: 그 해 6월 1일})`, 건축물 `calculate({recipe:"prop.building", inputs:{price: 건물 시가표준액, kind: 1 골프장·고급오락장|2 주거지역 등 공장|3 그 밖, dense_factory: 과밀억제권역 공장 신설·증설 1|0, urban, prev_tax, prev_urban}, as_of: 그 해 6월 1일})`. 종합합산·별도합산은 **같은 시·군·구 안 토지 가액을 합산해 한 번** 부른다(제113조①). 세부담상한(제122조 150%, 본세·도시지역분 각각)은 직전 연도 세액(`prev_tax`·`prev_urban`)을 줄 때만 반영 — 모르면 답에 "세부담상한 미반영"이라고 적는다. 건축물 지역자원시설세(소방분)는 레시피 밖.
+     재산세 고지서의 소방분 지역자원시설세는 `calculate({recipe:"prop.fire_resource", inputs:{price, kind, fire, base_given, prev_tax}, as_of: 그 해 6월 1일})` 로 따로 계산한다(prop.building·prop.house total 에 없음). 주택은 건물분 가액을 모르는 경우가 많으니 고지서의 지역자원시설세 과세표준을 `base_given` 으로 받는다
+     재산세 감면(임대사업자·주택연금·전세사기·창업·인구감소지역 창업)은 감면 전 prop.* 결과를 `calculate({recipe:"prop.relief", inputs:{object, code, ...}})` 에 넣는다. 토지는 과세표준 경감 후 세율 재적용, 면제라도 산출 50만원 초과면 85%(최소납부), 도시지역분은 조문이 포함할 때만 — 직접 곱하지 말 것. 출력 `cpt_price_cut` 은 종부세 감면 공시가격 공제에 쓴다
+     종부세는 `calculate({recipe:"cpt.house", inputs:{price_sum, owner, houses, …}, as_of: 그 해 6월 1일})`. 재산세 공제는 도시지역분·지방교육세를 뺀 본세의 과세표준 비율분이고, 1세대 1주택 세액공제(연령+보유, 80% 한도)는 재산세 공제 **후** 세액에 곱한다. 부부 공동명의는 `joint:1` 로 특례와 각자 9억을 한 번에 비교한다(종부세 `owner` 와 재산세 `prop_one_house` 는 따로 판단). 홈택스 대조 전이라 답에 "공식 계산기 미대조"를 적는다
+     토지분 종부세는 `calculate({recipe:"cpt.land", inputs:{kind, price_sum, …}, as_of: 그 해 6월 1일})`. 종합합산 5억·별도합산 80억을 공제하고(공정시장가액비율 100%), 재산세는 시·군·구별로 매겨지므로 여러 시·군·구 토지는 `prop.land` 를 시·군·구마다 불러 본세 합계를 `prop_levied` 로 넣는다
      종합소득 결손금·이월결손금 공제 순서(원천징수 이자·배당 제외)는 terms·steps 를 짜지 말고 `calculate({recipe:"pit.loss_order", inputs:{business, rental, wage, pension, other, interest, dividend, withholding_fin, carryforward, rental_cf}, as_of: 과세기간 말일})`. 빠진 소득은 0. 분리과세(2천만원 이하) 금융은 `withholding_fin` 에 넣지 않음. 결과 `total` 은 종합소득금액. 기본공제·연금보험료는 뒤에 steps. 산출세액 끝수는 `floor_won`
      금융소득 종합과세(2천만원·배당가산 10%·비교과세)는 terms·steps 를 짜지 말고 `calculate({recipe:"pit.financial_global", inputs:{interest, interest_nonbiz, dividend_ex, dividend, other_income, income_deduction}, as_of: 과세기간 말일})`. 빠진 칸은 0. 2천만원 이하는 합산하지 않음. 충전 순서 이자→가산 제외 배당→가산 대상 배당. 제62조 제1호=(과세표준−2천만원)×기본세율+2천만원×14%, 제2호=금융×제129조 세율(비영업대금 25%·그 밖 14%)+다른 소득 산출세액. 가산율 100분의 10. 외국법인 등 가산 제외 배당은 `dividend_ex`. ISA 비과세·고배당 특례는 inputs 에 넣지 않음. 끝수는 `floor_won`
      상속 배우자공제(하한 5억·한도 30억)·일괄공제는 terms·steps 를 짜지 말고 `calculate({recipe:"inh.spouse_deduction", inputs:{spouse_actual, estate, bequest, added_gift, spouse_share, prior_gift, personal, spouse_only}, as_of: 상속개시일})`. 공제=max(5억원, min(실제액, 산식, 30억원)). 실제≥5억이어도 산식이 5억 미만이면 하한 5억원. `estate` 는 채무·공과금·비과세·불산입 차감 후(상증령 제17조①)
      증여세·상속세 계산도 레시피다. **고르는 순서(한 호출에 레시피 하나, 단계 값은 다음 호출 inputs 로 옮긴다)**.
      증여: ①비상장주식·상장주식·임대 부동산이면 `val.unlisted_stock`·`val.listed_stock`·`val.real_estate` 로 평가액을 먼저 얻어 `gift_value` 로 쓴다 → ②저가양수·고가양도·금전 무상대출·부동산 무상사용·담보이용·특정법인 이익이면 `gift.deemed` 의 `deemed_gift` 단계(증여이익) → ③`gift.tax`(증여자 관계 `donor_spouse|donor_ascendant|donor_descendant|donor_other_kin` 중 하나, `minor`, 비거주 수증자 `non_resident`, 10년 내 공제받은 금액 `used_exemption`, 혼인·출산 `marriage_birth_gift`, 세대생략 `generation_skip`, 기한 내 신고 `filed`, as_of 증여일) → ④같은 증여자의 10년 내 종전 증여가 있으면 `gift.repeated`(`cur_value`·`cur_base`·`cur_skip_rate` + 종전 건 슬롯)로 합산 과세·기납부세액공제. 부담부증여는 `debt` 입력.
      상속: ①`inh.tax` 를 `deductions` 0 으로 불러 `inheritance_value` 단계(과세가액·사전증여 합산)를 얻는다 → ②`inh.deductions`(`inheritance_value`, 가업·영농은 `inh.business` 의 `business_total` 을 `business_deduction` 으로)로 공제 `total`(제24조 종합한도 포함) → ③`inh.tax` 를 `deductions`=공제 `total` 로 다시 불러 산출세액. 상속인이 여럿이면 상속인마다 `heir_share`(상속분 비율)로 안분한다. 상속인 인적·가족 사실(자녀 수·미성년 연수·배우자 유무·동거주택·금융재산)은 질문에 적힌 대로 inputs 로 주고, 적히지 않은 것은 해당 없음으로 가정해 **바로 계산한 뒤 가정을 답에 적는다**.
+     상속세 세액공제(외국납부·단기재상속·징수유예)와 조특 특례 증여(창업자금·가업승계)는 `inh.tax` 전용 입력(`foreign_*`·`prior_inh_*`·`reinherit_*`·`heritage_value`·`special_gift_*`)으로 넣는다 — `credits_before_filing` 에 금액을 몰아넣지 않는다. 의제 증여는 `gift.deemed` 의 `deemed_flag` 를 `gift.tax` 의 `deemed` 로 잇는다(혼인·출산공제 배제)
      끝수는 레시피가 원 미만 절사한다(홈택스 증여 간편계산은 반올림이라 1원 차이가 날 수 있다 — 그대로 옮기고 차이를 따로 적지 않는다).
      양도소득세 복합 사례(단기·미등기·비사업용·분양권·다주택 중과·이월과세·부담부증여·감면·주식·국외·같은 해 여러 건)도 레시피다. **고르는 순서**: ①취득가액을 모르면 `cg.converted_acquisition`(환산취득가액·개산공제) → ②세율·산출: 1세대 1주택 비과세·고가주택은 `cg.one_house`, 그 밖은 `cg.rate_select`(단기·미등기·비사업용·분양권, 조정대상지역 분양권 `presale_regulated`, 조합원입주권 `union_pre_gain`, 지상권 등 기타 권리 `is_other_right`). 판은 2018-01-01 양도분부터 있다. 다주택이면 먼저 `cg.house_surcharge` 로 중과 가산율 `surcharge` 를 얻어 `cg.rate_select` 입력에 넣는다(2단 호출) → ③증여받은 자산을 5년(2023-01-01 전 증여분)·10년 안에 양도하면 `cg.carryover`, 부담부증여는 `cg.burdened_gift`, 주식은 `cg.stock`, 국외 부동산은 `cg.foreign`, 파생상품은 `cg.derivative`(2018-04-01~) → ④감면(제69·70·77조)은 `cg.reduction` → ⑤같은 해 여러 건이면 `cg.annual`(자산별 소득은 앞 레시피 결과, 부동산 등 그룹 2건 이상이면 제104조⑤ 비교과세 `compare`, 주식·파생은 `compare: 0`) → ⑥결정세액·납부할 세액·가산세·지방소득세가 필요하면 마지막에 `cg.settle`(산출세액·감면세액·예정신고 기납부세액). 한 호출에 레시피 하나, 단계 값은 다음 호출 inputs 로 옮긴다. 입력 이름·판 기간은 `research` 의 `calc_recipes` 와 `references/calculate.md` 를 따른다. 1세대 1주택·중과 배제·대주주·중소기업·거주기간·기본공제 사용 여부는 질문에 적힌 사실로 판단해 inputs 로 주고, 적히지 않은 것은 해당 없음(기본공제는 이 건에 전액, 다른 양도 없음, 국외자산은 5년 거주 충족 여부가 문항에 없으면 충족으로)으로 가정해 **바로 계산한 뒤 가정을 답에 적는다**. 계산을 멈추고 되묻지 않는다.
 4. 오류(isError)면 code 대로 고쳐 다시 부른다. 경고는 get_article 로 확인해 고치거나 답에 그대로 옮긴다

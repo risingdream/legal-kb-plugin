@@ -1,7 +1,7 @@
-# legal-kb 도구 8종 — 인자와 응답
+# legal-kb 도구 — 인자와 응답
 
 `SKILL.md` 가 정한 순서를 따르되, 인자를 정확히 넣어야 할 때 이 파일을 본다.
-값은 서버 `toolDefs()` 실측이다(2026-09-23, `property_lookup`·`property_issue` 2026-10-02).
+값은 서버 `toolDefs()` 실측이다(2026-09-23, `property_lookup`·`property_issue`·`search_commentary` 2026-10-02, 문서 도구 2026-10-03).
 
 ## `research` — 처음 부를 도구
 
@@ -127,6 +127,20 @@
 응답은 합쳐진 텍스트 `web_text` 한 덩어리와 `sources[]`.
 호출 기준은 `SKILL.md` 의 표를 따른다. 조문 질문에 섞으면 인용할 조문이 밀려난다.
 
+## `search_commentary` — 실무 해설(2차 문헌) (RAG-9049)
+
+국세청 책자·법령 해설 같은 2차 문헌에서 조각을 찾는다. `research`·`search_legal` 에는 해설이 붙지 않는다 — 필요할 때 이 도구로만 부른다.
+
+| 인자 | 기본 | 설명 |
+|---|---|---|
+| `query` (필수) | — | 실무 질의. 서식 이름·절차·항목을 넣는다(예: `종합소득세 신고서 사업소득명세서 업종코드`) |
+| `law_name` · `article_no` | (없음) | 관련 조문을 알면 넣는다. 그 조문(법령)을 인용한 해설이 앞에 온다 |
+| `year` | 질의의 연도 → 최신판 | 귀속연도. 해마다 나오는 책자는 이 연도를 덮는 판을 고른다 |
+| `limit` | 3 | 상한 5 |
+
+응답: `commentary[]`(title · citation · excerpt · access_level · page · warning) · `commentary_note`.
+`excerpt` 는 발췌다 — 밖의 본문을 지어내지 않는다. `warning`(개정 전 해설)이 있으면 그 내용을 현행 법으로 인용하지 않는다.
+
 ## `property_lookup` — 부동산 공부 조회 (RAG-9005)
 
 토지대장·건축물대장·공시가격을 공공 API(브이월드·건축HUB)로 조회한다. 계산 레시피에 넣을 공시가격·면적을 사용자가 주지 않았을 때 쓴다.
@@ -142,7 +156,7 @@
 응답: `notice`(공적 증명 아님 안내) · `pnu` · `land_register.parcels[]`(지목 `land_category`·`area_m2`) · `building_ledger`(`titles[]`·`recap_titles[]` 의 `main_purpose`·`total_floor_area_m2`·`use_approval_date`, 호실 `unit_areas`) · `official_prices.land`(개별공시지가 `unit_price_per_m2`·총액 `amount`)·`official_prices.house`(개별주택가격 또는 공동주택가격). 갈래마다 `source`(기관·조회 시각)가 붙는다.
 
 - 결과는 **공적 증명이 아니다**(발급본 아님). 답에 그 안내와 출처·조회 시각을 함께 쓴다.
-- 레시피 입력: `cg.converted_acquisition` 의 취득·양도 당시 기준시가, `val.real_estate` 의 `standard_value` 는 해당 연도 `official_prices` 의 `amount`(토지는 `land`, 단독·공동주택은 `house` — 토지를 더하지 않는다). 날짜가 그해 공시일(통상 4~5월) 전이면 직전 연도 값.
+- 레시피 입력: `prop.house` 의 `price`·`prior_price`(과세표준상한)는 과세연도·직전 연도 `official_prices.house` — 주택 재산세는 `years` 에 두 해를 함께 넣는다. `cg.converted_acquisition` 의 취득·양도 당시 기준시가, `val.real_estate` 의 `standard_value` 는 해당 연도 `official_prices` 의 `amount`(토지는 `land`, 단독·공동주택은 `house` — 토지를 더하지 않는다). 날짜가 그해 공시일(통상 4~5월) 전이면 직전 연도 값.
 - 공시 전 연도는 `missing_years`. 비주거 건물분 기준시가(국세청 고시)·등기부(소유자·권리관계)는 조회하지 않는다.
 - 하루 호출 상한이 있다(`limit_exceeded`). 같은 물건·연도는 하루 동안 캐시된다.
 - 공동주택 필지의 `official_prices.land` 에 `scope: "complex"` 가 붙으면 단지 토지 전체 총액이다(호실 몫 아님) — 호실은 `house`(공동주택가격)를 쓴다. 동을 주면 `building_ledger.unit_title` 이 그 동 표제부다.
@@ -166,6 +180,60 @@
 - 같은 사용자·같은 물건·같은 대장 종류는 같은 날 다시 발급하지 않고 그날 발급본을 준다(`reused`).
 - 상한(`limit_exceeded`)·미설정(`unavailable`)이면 발급하지 않는다. 링크가 만료되면 도구를 다시 부른다(같은 날이면 재발급 없이 새 링크).
 
+## 문서 도구 — 인용 검증·개인 문서 만들기·고치기 (RAG-9072)
+
+연결이 문서 권한을 가질 때만 목록에 보인다. 기존 연결(조회만)에는 없다 — 쓰려면 연결을 해지하고 다시 연결해 동의 화면에서 문서 권한을 받거나, 웹 **내 토큰**에서 권한을 골라 새 토큰을 발급한다.
+
+| 도구 | 권한(scope) | 하는 일 |
+|---|---|---|
+| `doc_verify_citations` | `docs:verify` 또는 `docs:write` | 내가 쓴 글의 인용 검증. **저장하지 않는다** |
+| `doc_create` | `docs:write` | 내 개인 문서함에 새 문서(사건 문서는 못 만든다) |
+| `doc_update` | `docs:write` | 내 개인 문서 한 자리를 바로 고침. 직전 본은 판으로 자동 저장 |
+| `doc_verify` | `docs:write` | 저장된 내 문서의 인용을 다시 검증해 문서에 기록 |
+
+- 서버는 글을 쓰지 않는다. 마크다운은 **내가(호출자 모델이) 쓴다**. 서버는 블록으로 바꾸고 인용을 검증(§6.3: `ok`·`not_found`·`text_mismatch`·`part_mismatch`·`amended`)해 저장만 한다.
+- 인용은 문장 안에 `「법령명」 제N조 제N항`(부칙은 `「법령명」 부칙 제N조`), 판례는 사건번호 그대로 쓴다. 이 꼴이 아니면 인용으로 잡히지 않는다.
+- 문서를 쓰기 전에 `doc_verify_citations` 로 초안 인용을 먼저 거른다. `not_found`·`text_mismatch` 는 `get_article`·`get_decision` 으로 확인해 고친 뒤 저장한다. `amended` 는 기준일 판은 맞지만 그 뒤 개정됐다는 경고다.
+- 금액 칸은 `calculate` 결과만 `calc` 로 넘긴다(직접 계산한 숫자 금지).
+- 본문을 읽어 오는 도구는 없다. 결과의 `link`(`https://chat.taxdesk.kr/doc/<id>`)로 웹 편집기에서 열어 확인·내려받기(DOCX·PDF·HWPX)한다. 경정청구서 같은 제출 서식은 웹에서 칸 출처를 확인한 뒤 제출하라고 사용자에게 알린다.
+
+### `doc_verify_citations`
+
+| 인자 | 설명 |
+|---|---|
+| `markdown` | 검증할 본문(최대 200KB). `citations` 와 둘 중 하나 |
+| `citations` | `[{law_name, article_no, clause?, quote?, addenda?}]` 또는 `[{case_no}]`(최대 200개) |
+| `as_of` | 기준일 YYYY-MM-DD. 비면 오늘. 과거면 그 뒤 개정(`amended`)도 본다 |
+
+응답: `as_of` · `total` · `counts`(상태별 개수) · `issues`(ok 아닌 인용만 `label`·`status`·`note`) · `note`.
+
+### `doc_create`
+
+| 인자 | 설명 |
+|---|---|
+| `doc_type` | `free`(자유 문서, 본문 절 `body`) · `review_opinion`(검토의견서) · `correction_claim`(경정청구서) · `explanation_reply`(해명자료 제출서) |
+| `markdown` | `free` 본문 |
+| `sections` | 절 있는 서식의 `{절 key: 마크다운}`. 검토의견서 `question`·`facts`·`laws`*·`analysis`*·`conclusion`·`basis`*, 경정청구서 `reason`*, 해명자료 `item_1`*·`evidence` (* 인용 필수 절) |
+| `title` · `as_of` | 제목(비면 서식 이름) · 인용 검증 기준일 |
+| `values` · `calc` | 서식 칸 `{칸 key: 값}`(사용자가 준 값만) · `[{key, value, ref}]`(calculate 결과) |
+
+응답: `doc_id` · `link` · `sections`(절 key·채움 여부) · `cites` · `issues`(블록 위치 포함) · `warnings`(인용 필수 절에 통과한 인용이 없음 등) · `fields`·`unfilled`(서식 칸).
+
+### `doc_update` · `doc_verify`
+
+| 인자 | 설명 |
+|---|---|
+| `doc_id` | 고칠 문서 id |
+| `markdown` | 그 자리에 넣을 새 내용(자리 전체를 새로 쓴다) |
+| `section_key` | 절 하나 전체. 절이 하나뿐인 문서(`free`)는 비워도 된다 |
+| `block_ids` | `doc_verify`·`doc_create` 의 `issues[].block_id` — 같은 자리에 붙은 블록을 문서 순서대로 |
+| `note` | 무엇을 왜 고쳤는지(판 이름 「MCP 수정 전 · …」에 남는다) |
+
+`doc_update` 응답: `status: applied` · `version_id`·`version_name`(되돌릴 판) · `cites` · `issues` · `warnings`. 서식 칸이 든 블록은 고칠 수 없다(칸 값은 웹 편집기에서).
+`doc_verify` 는 `doc_id` 만 받는다. 응답의 `issues` 를 `doc_update` 대상으로 쓴다.
+
+상한: 사용자당 쓰기 시간당 20회(`rate_limited`), 개인 문서 수 상한(`limit_exceeded`), 입력 마크다운 200KB. 사건 문서·남의 문서 id 는 `not_found` 로 거절된다.
+
 ## `calculate` — 세액·과세표준·공제액 계산
 
 금액은 이 도구로만 계산한다. 인자·함수·경고 코드·예시는 [`calculate.md`](calculate.md).
@@ -178,3 +246,6 @@
 | `not_in_force` | 기준일에 시행 중인 개정판이 없다 |
 | `unavailable` | 검색기 연결이 없다(서버 측) |
 | `unknown_tool` | 도구 이름 오타 |
+| `insufficient_scope` | 이 연결·토큰에 문서 권한(`docs:verify`·`docs:write`)이 없다 — 다시 연결해 동의하거나 새 토큰 |
+| `rate_limited` | 문서 쓰기 시간당 상한을 넘었다 |
+| `limit_exceeded` | 개인 문서 수 상한(문서 도구)·하루 발급 상한(`property_issue`) |
