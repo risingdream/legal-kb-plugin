@@ -1,7 +1,7 @@
-# legal-kb 도구 7종 — 인자와 응답
+# legal-kb 도구 9종 — 인자와 응답
 
 `SKILL.md` 가 정한 순서를 따르되, 인자를 정확히 넣어야 할 때 이 파일을 본다.
-값은 서버 `toolDefs()` 실측이다(2026-09-23).
+값은 서버 `toolDefs()` 실측이다(2026-09-23, `property_lookup`·`property_issue`·`search_commentary` 2026-10-02).
 
 ## `research` — 처음 부를 도구
 
@@ -61,10 +61,12 @@
 |---|---|---|
 | `law_name` | ✔ | 정식 명칭. `민법` · `근로기준법` · `부가가치세법` · `소득세법 시행령` · `상속세 및 증여세법` |
 | `article_no` | ✔ | `제89조` · `89` · `제55조의2` 모두 받는다 |
+| `document_id` | | `research`의 문서 ID. 부칙(`document_kind=addendum`)은 반드시 넣는다. 법령·조문과 일치해야 하며 다른 문서로 대체 조회하지 않는다 |
 | `as_of` | | 기준일 |
 | `include_scheduled` | | `true` 면 시행예정을 `scheduled` 필드로만 반환 |
 
 기준일에 시행 중인 개정판이 없고 시행예정만 있으면 `isError: not_in_force`.
+문서 ID로 부칙 시행판을 읽을 때는 `enforced_from`을 `as_of`에 넣는다. 그 판이 없으면 `not_found`다. 이 경로는 `include_scheduled`로 다른 판을 보충하지 않는다.
 약칭은 통하지 않는다 — `부가세법` ✗, `조특법` ✗.
 
 ### 옮겨진 조문 `moved_to` · `moved_from`
@@ -124,6 +126,59 @@
 
 응답은 합쳐진 텍스트 `web_text` 한 덩어리와 `sources[]`.
 호출 기준은 `SKILL.md` 의 표를 따른다. 조문 질문에 섞으면 인용할 조문이 밀려난다.
+
+## `search_commentary` — 실무 해설(2차 문헌) (RAG-9049)
+
+국세청 책자·법령 해설 같은 2차 문헌에서 조각을 찾는다. `research`·`search_legal` 에는 해설이 붙지 않는다 — 필요할 때 이 도구로만 부른다.
+
+| 인자 | 기본 | 설명 |
+|---|---|---|
+| `query` (필수) | — | 실무 질의. 서식 이름·절차·항목을 넣는다(예: `종합소득세 신고서 사업소득명세서 업종코드`) |
+| `law_name` · `article_no` | (없음) | 관련 조문을 알면 넣는다. 그 조문(법령)을 인용한 해설이 앞에 온다 |
+| `year` | 질의의 연도 → 최신판 | 귀속연도. 해마다 나오는 책자는 이 연도를 덮는 판을 고른다 |
+| `limit` | 3 | 상한 5 |
+
+응답: `commentary[]`(title · citation · excerpt · access_level · page · warning) · `commentary_note`.
+`excerpt` 는 발췌다 — 밖의 본문을 지어내지 않는다. `warning`(개정 전 해설)이 있으면 그 내용을 현행 법으로 인용하지 않는다.
+
+## `property_lookup` — 부동산 공부 조회 (RAG-9005)
+
+토지대장·건축물대장·공시가격을 공공 API(브이월드·건축HUB)로 조회한다. 계산 레시피에 넣을 공시가격·면적을 사용자가 주지 않았을 때 쓴다.
+
+| 인자 | 기본 | 설명 |
+|---|---|---|
+| `address` | — | 도로명·지번 주소. 공동주택은 동·호까지. `address`·`pnu` 중 하나 필수 |
+| `pnu` | — | 19자리 필지 고유번호 |
+| `years` | 작년·올해 | 공시가격 기준연도(YYYY, 최대 10개). 취득·양도·평가 연도를 넣는다 |
+| `dong`·`ho` | — | 주소에 동·호가 없을 때. `ho` 가 있으면 전유·공용면적과 공동주택가격을 조회 |
+| `sections` | 전부 | `land`(토지대장)·`building`(건축물대장)·`price`(공시가격) 중 일부 |
+
+응답: `notice`(공적 증명 아님 안내) · `pnu` · `land_register.parcels[]`(지목 `land_category`·`area_m2`) · `building_ledger`(`titles[]`·`recap_titles[]` 의 `main_purpose`·`total_floor_area_m2`·`use_approval_date`, 호실 `unit_areas`) · `official_prices.land`(개별공시지가 `unit_price_per_m2`·총액 `amount`)·`official_prices.house`(개별주택가격 또는 공동주택가격). 갈래마다 `source`(기관·조회 시각)가 붙는다.
+
+- 결과는 **공적 증명이 아니다**(발급본 아님). 답에 그 안내와 출처·조회 시각을 함께 쓴다.
+- 레시피 입력: `cg.converted_acquisition` 의 취득·양도 당시 기준시가, `val.real_estate` 의 `standard_value` 는 해당 연도 `official_prices` 의 `amount`(토지는 `land`, 단독·공동주택은 `house` — 토지를 더하지 않는다). 날짜가 그해 공시일(통상 4~5월) 전이면 직전 연도 값.
+- 공시 전 연도는 `missing_years`. 비주거 건물분 기준시가(국세청 고시)·등기부(소유자·권리관계)는 조회하지 않는다.
+- 하루 호출 상한이 있다(`limit_exceeded`). 같은 물건·연도는 하루 동안 캐시된다.
+- 공동주택 필지의 `official_prices.land` 에 `scope: "complex"` 가 붙으면 단지 토지 전체 총액이다(호실 몫 아님) — 호실은 `house`(공동주택가격)를 쓴다. 동을 주면 `building_ledger.unit_title` 이 그 동 표제부다.
+
+## `property_issue` — 대장 발급본(PDF) 발급 (RAG-9025)
+
+정부24 에서 건축물대장·토지대장 **발급본**(공적 증명)을 회사 계정으로 발급한다. 사용자별·전체 하루 상한이 있고 수십 초~2분 걸린다.
+값(면적·지목·용도·공시가격)만 필요하면 `property_lookup` 으로 충분하다 — 그때는 발급하지 않는다. 제출용 원본·대장 원문 확인이 꼭 필요할 때만 부른다.
+
+| 인자 | 기본 | 설명 |
+|---|---|---|
+| `kind` | (필수) | `building` 건축물대장 · `land` 토지대장 |
+| `address` | — | 도로명·지번 주소(동·호 포함 가능). 건축물대장은 주소가 필요하다 |
+| `pnu` | — | 19자리 필지 고유번호. 주소 후보가 여럿일 때 고른 필지 |
+| `dong`·`ho` | — | 공동주택 호실. `ho` 가 있으면 전유부 |
+| `register_kind` | 자동 | `general`·`recap`(총괄표제부)·`title`(표제부)·`unit`(전유부). 비우면 공동주택+호 → 전유부, 공동주택 → 표제부, 그 밖 → 일반 |
+| `price_year` | 최근 | 토지대장에 적을 공시지가 연도 |
+
+응답: `status`(`issued`·`reused`) · `ledger` · `aply_no`(정부24 접수번호) · `pages` · `sha256` · `file_name` · `usage`(오늘 남은 수) · `download_url`·`expires_at`(15분 유효 서명 링크). PDF 본문은 싣지 않는다.
+
+- 같은 사용자·같은 물건·같은 대장 종류는 같은 날 다시 발급하지 않고 그날 발급본을 준다(`reused`).
+- 상한(`limit_exceeded`)·미설정(`unavailable`)이면 발급하지 않는다. 링크가 만료되면 도구를 다시 부른다(같은 날이면 재발급 없이 새 링크).
 
 ## `calculate` — 세액·과세표준·공제액 계산
 
