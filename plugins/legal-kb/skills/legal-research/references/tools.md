@@ -1,7 +1,7 @@
-# legal-kb 도구 9종 — 인자와 응답
+# legal-kb 도구 8종 — 인자와 응답
 
 `SKILL.md` 가 정한 순서를 따르되, 인자를 정확히 넣어야 할 때 이 파일을 본다.
-값은 서버 `toolDefs()` 실측이다(2026-09-23, `property_lookup`·`property_issue`·`search_commentary` 2026-10-02).
+값은 서버 `toolDefs()` 실측이다(2026-09-23, `property_lookup`·`property_issue` 2026-10-02).
 
 ## `research` — 처음 부를 도구
 
@@ -126,20 +126,6 @@
 
 응답은 합쳐진 텍스트 `web_text` 한 덩어리와 `sources[]`.
 호출 기준은 `SKILL.md` 의 표를 따른다. 조문 질문에 섞으면 인용할 조문이 밀려난다.
-
-## `search_commentary` — 실무 해설(2차 문헌) (RAG-9049)
-
-국세청 책자·법령 해설 같은 2차 문헌에서 조각을 찾는다. `research`·`search_legal` 에는 해설이 붙지 않는다 — 필요할 때 이 도구로만 부른다.
-
-| 인자 | 기본 | 설명 |
-|---|---|---|
-| `query` (필수) | — | 실무 질의. 서식 이름·절차·항목을 넣는다(예: `종합소득세 신고서 사업소득명세서 업종코드`) |
-| `law_name` · `article_no` | (없음) | 관련 조문을 알면 넣는다. 그 조문(법령)을 인용한 해설이 앞에 온다 |
-| `year` | 질의의 연도 → 최신판 | 귀속연도. 해마다 나오는 책자는 이 연도를 덮는 판을 고른다 |
-| `limit` | 3 | 상한 5 |
-
-응답: `commentary[]`(title · citation · excerpt · access_level · page · warning) · `commentary_note`.
-`excerpt` 는 발췌다 — 밖의 본문을 지어내지 않는다. `warning`(개정 전 해설)이 있으면 그 내용을 현행 법으로 인용하지 않는다.
 
 ## `property_lookup` — 부동산 공부 조회 (RAG-9005)
 
