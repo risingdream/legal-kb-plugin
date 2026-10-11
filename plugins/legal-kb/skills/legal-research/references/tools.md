@@ -1,7 +1,7 @@
 # legal-kb 도구 — 인자와 응답
 
 `SKILL.md` 가 정한 순서를 따르되, 인자를 정확히 넣어야 할 때 이 파일을 본다.
-값은 서버 `toolDefs()` 실측이다(2026-09-23, `property_lookup`·`property_issue`·`search_commentary` 2026-10-02, 문서 도구 2026-10-03).
+값은 서버 `toolDefs()` 실측이다(2026-09-23, `property_lookup`·`property_issue`·`search_commentary` 2026-10-02, 문서 도구 2026-10-03, `standard_value` 2026-10-07).
 
 ## `research` — 처음 부를 도구
 
@@ -161,6 +161,24 @@
 - 공시 전 연도는 `missing_years`. 비주거 건물분 기준시가(국세청 고시)·등기부(소유자·권리관계)는 조회하지 않는다.
 - 하루 호출 상한이 있다(`limit_exceeded`). 같은 물건·연도는 하루 동안 캐시된다.
 - 공동주택 필지의 `official_prices.land` 에 `scope: "complex"` 가 붙으면 단지 토지 전체 총액이다(호실 몫 아님) — 호실은 `house`(공동주택가격)를 쓴다. 동을 주면 `building_ledger.unit_title` 이 그 동 표제부다.
+
+## `standard_value` — 지방세 시가표준액 조회 (RAG-9177)
+
+「지방세법」 제4조의 시가표준액(취득세·재산세·등록면허세 과세표준 기준)을 물건 종류에 맞춰 돌려준다. 토지·주택은 `property_lookup` 과 같은 공시가격, 주택 외 건축물은 공공데이터포털에 지자체가 공개한 건물분 시가표준액 파일(적재본)에서 찾는다.
+
+| 인자 | 기본 | 설명 |
+|---|---|---|
+| `address` | — | 도로명·지번 주소(동·호 포함 가능). `address`·`pnu` 중 하나 필수 |
+| `pnu` | — | 19자리 필지 고유번호 |
+| `years` | 작년·올해 | 과세(기준)연도 YYYY, 최대 10개 |
+| `dong`·`ho` | — | 공동주택 가격·집합건물 호실 건물분을 고를 때 |
+
+응답: `object`(`apartment`·`house`·`non_residential`·`mixed`·`land`·`unknown`) · `summary`(어느 값이 시가표준액인지) · `land`(개별공시지가 × 면적) · `house`(개별·공동주택가격, 토지 포함) · `building`(`status`·과세연도별 `years[].total`·`rows[]`(동·호·면적)·`match`·`sources[]`(데이터셋 URL)·`guidance`) · `legal_basis`(제4조①②, 시행령 제2조·제4조①) · `year_note`.
+
+- 주택은 주택가격이 곧 시가표준액이다 — 토지 공시지가를 더하지 않는다. 주택 외 건축물은 건물분(`building`) + 토지분(`land`), 집합건물 호실의 토지분은 필지 총액 × 대지권 비율.
+- `building.status`: `found` · `unit_not_found`(필지엔 있으나 그 동·호가 없음, 필지 전체를 싣는다) · `not_found`(공개 파일에 없음) · `not_covered`(그 시·군·구가 파일을 공개하지 않음 — **서울 자치구 전부**) · `unavailable`. 값이 없으면 **추정하지 말고** `guidance`(위택스·서울 ETAX 시가표준액 조회, 고지서, 시·군·구 세무과)를 답에 쓴다.
+- 지자체 파일은 대개 1~2년 늦게 공개된다. 요청 연도가 없으면 공개된 최근 과세연도를 싣고 `note` 에 적는다 — 답에도 과세연도를 밝힌다.
+- 레시피 입력: `prop.building` 의 `price` = `building.years[].total`(호실이면 그 호실), `prop.land` 의 `price` = `land` 총액, `prop.house` 의 `price` = `house`. 국세 기준시가(국세청 고시 상업용 건물·오피스텔)는 이 도구가 아니다.
 
 ## `property_issue` — 대장 발급본(PDF) 발급 (RAG-9025)
 
