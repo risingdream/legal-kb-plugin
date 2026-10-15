@@ -120,6 +120,8 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
 
 ## 근거 충돌과 후속 답변
 
+- **후속 질문은 관련 조문을 다시 조회한다.** 앞 턴에서 읽은 조문·판례가 대화에 남아 있어도 조건(금액·인원·기간·주택 수·당사자)·시점(기준일·귀속연도)·사례(내 사실에 적용)·주제(다른 조문·세목·쟁점)가 바뀐 후속 질문과 반박에는, 그 질문의 답을 정하는 조문을 `get_article`(조문을 알 때) 또는 `research`(새 쟁점)로 다시 불러 확인하고 그 조문을 「법령명」 제N조+시행일로 인용한다. 부칙 단계 적용·단서·다른 항이 답을 바꾸는 경우가 많다. 앞 답을 요약·재정리만 해 달라는 질문만 다시 조회하지 않는다. 앞 턴 결과만으로 답한 후속 턴에서 조문 인용과 정답이 빠졌다(RAG-8497: 후속 12턴 도구 0회, 조문 인용 84%).
+- 후속 턴에서 금액·인원 같은 입력이 바뀐 계산은 새 계산이다 — `calculate` 를 새 입력으로 다시 부르고 근거 조문을 함께 인용한다.
 - 공포일과 시행일을 구분해 적는다. 부칙 적용례·경과조치가 정한 발생일·행위일 조건을 확인한다.
 - 사용자 반박·첨부·새 판례가 앞 답과 충돌하면 해당 조문·판례 전문을 대조한다. 결론을 바꾸면 틀린 앞 주장, 정정 이유(근거), 바뀐 결론을 "앞 답의 ○○은 틀렸다"처럼 명시한다. 근거 없이 사용자 주장에 동의하지 않는다.
 - 첨부·발췌는 실제 적힌 조문 번호와 판본(시행일)을 먼저 대조한다. 판본을 모르면 구법이라고 단정하지 않고, 제공되지 않은 사건번호·연도·인용 취지를 추정해 채우지 않는다.
@@ -160,7 +162,7 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
 2. 사실 판정이 필요하면 계산하기 전에 되묻는다 (아래)
 3. calculate(terms, steps, as_of) — **완성된 steps 로 한 번에**
    - 근거 조문을 다 확인한 뒤, 답에 쓸 단계(지방소득세·합계·중간값 포함)를 모두 넣어 1회 부른다. 조금씩 나눠 여러 번 부르지 않는다
-   - 다시 부르는 건 오류(isError)·경고를 고칠 때, 요건 판정 결과로 계산 경로가 갈릴 때, 시점 비교(as_of 를 바꿔 두 번)일 때뿐이다
+   - 다시 부르는 건 오류(isError)·경고를 고칠 때, 요건 판정 결과로 계산 경로가 갈릴 때, 시점 비교(as_of 를 바꿔 두 번)일 때, 후속 질문에서 입력이 바뀌었을 때뿐이다
    - 사용자 사실(가액·날짜·면적): {value, label, source:"user"}
    - 법 숫자(공제액·세율·한도): {value, label, source:"law", cite:{law, article, paragraph, item}}
    - 세율표: {label, table_from:{law, article, paragraph, item, table, column}} — 손으로 옮기지 않는다
@@ -183,6 +185,7 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
      법인·사업용 감면(본점·공장 지방 이전, 기회발전특구, 합병·분할·현물출자·법인전환, 창업중소기업, 지식산업센터, 산업단지)은 취득세 `calculate({recipe:"acq.relief_biz", ...})`, 재산세 `calculate({recipe:"prop.relief_biz", ...})`. 지방 이전 면제도 산출 취득세 200만원·재산세 50만원 초과면 85%, 이전한 가액이 종전보다 크면 초과액은 과세 — 직접 곱하지 말 것
      종부세는 `calculate({recipe:"cpt.house", inputs:{price_sum, owner, houses, …}, as_of: 그 해 6월 1일})`. 재산세 공제는 도시지역분·지방교육세를 뺀 본세의 과세표준 비율분이고, 1세대 1주택 세액공제(연령+보유, 80% 한도)는 재산세 공제 **후** 세액에 곱한다. 부부 공동명의는 `joint:1` 로 특례와 각자 9억을 한 번에 비교한다(종부세 `owner` 와 재산세 `prop_one_house` 는 따로 판단). 재산세 공제 분모는 주택별 재산세 합계가 아니라 합산 과세표준의 누진 재산세다(홈택스 14건 일치, 공동명의 특례는 미대조)
      토지분 종부세는 `calculate({recipe:"cpt.land", inputs:{kind, price_sum, …}, as_of: 그 해 6월 1일})`. 종합합산 5억·별도합산 80억을 공제하고(공정시장가액비율 100%), 재산세는 시·군·구별로 매겨지므로 여러 시·군·구 토지는 `prop.land` 를 시·군·구마다 불러 본세 합계를 `prop_levied` 로 넣는다
+     종합소득세 산출세액(사업소득 세무조정·근로소득공제·연금소득공제·인적공제·연금보험료공제·기본세율)은 terms·steps 를 짜지 말고 `calculate({recipe:"pit.comprehensive", inputs:{book_profit, adj_add, adj_sub, wage_total, pension_total, other_income, spouse, dependents, elderly, disabled, pension_premium, …}, as_of: 과세기간 말일})`. 빠진 칸은 0. 세무조정은 가산 합계 `adj_add`·차감 합계 `adj_sub`, 총급여액·총연금액을 그대로 넣으면 근로소득공제·연금소득공제는 레시피가 계산(근로소득금액만 주어지면 `wage_amount`). 본인 기본공제는 자동, `spouse`(0|1)·`dependents`(배우자 밖 부양가족 수)·`elderly`(70세 이상)·`disabled`·`woman`·`single_parent`. 이월결손금 `carried_loss` 는 공제 기간 안 금액만(2020년 이후 발생 15년, 2009~2019년 10년). 단순경비율 추계 `est_revenue`·`est_rate_pct`, 주택임대 `rental_income`, 과세표준만 주어진 세율 질문은 `taxable_base`. 이자·배당 종합과세는 `pit.financial_global`
      종합소득 결손금·이월결손금 공제 순서(원천징수 이자·배당 제외)는 terms·steps 를 짜지 말고 `calculate({recipe:"pit.loss_order", inputs:{business, rental, wage, pension, other, interest, dividend, withholding_fin, carryforward, rental_cf}, as_of: 과세기간 말일})`. 빠진 소득은 0. 분리과세(2천만원 이하) 금융은 `withholding_fin` 에 넣지 않음. 결과 `total` 은 종합소득금액. 기본공제·연금보험료는 뒤에 steps. 산출세액 끝수는 `floor_won`
      금융소득 종합과세(2천만원·배당가산·비교과세)는 terms·steps 를 짜지 말고 `calculate({recipe:"pit.financial_global", inputs:{interest, interest_nonbiz, dividend_ex, dividend, other_income, income_deduction}, as_of: 과세기간 말일})`. 빠진 칸은 0. 2천만원 이하는 합산하지 않음. 충전 순서 이자→가산 제외 배당→가산 대상 배당. 제62조 제1호=(과세표준−2천만원)×기본세율+2천만원×14%, 제2호=금융×제129조 세율(비영업대금 25%·그 밖 14%)+다른 소득 산출세액. 가산율 100분의 10(2027년 귀속부터 100분의 11, as_of 로 판 선택). 외국법인 등 가산 제외 배당은 `dividend_ex`. ISA 비과세·고배당 특례는 inputs 에 넣지 않음. 끝수는 `floor_won`
      상속 배우자공제(하한 5억·한도 30억)·일괄공제는 terms·steps 를 짜지 말고 `calculate({recipe:"inh.spouse_deduction", inputs:{spouse_actual, estate, bequest, added_gift, co_heirs, prior_gift, personal, spouse_only}, as_of: 상속개시일})`. `co_heirs` 는 배우자와 함께 상속하는 자녀 수(자녀가 없으면 직계존속 수) — 법정상속분은 레시피가 민법 제1009조로 계산한다(직접 비율을 넣으려면 `spouse_share`). 공제=max(5억원, min(실제액, 산식, 30억원)). 실제≥5억이어도 산식이 5억 미만이면 하한 5억원. `estate` 는 채무·공과금·비과세·불산입 차감 후(상증령 제17조①)
