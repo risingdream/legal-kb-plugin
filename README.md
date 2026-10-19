@@ -31,6 +31,7 @@ claude plugin update legal-kb@legal-kb-plugin
 
 - 도구 6종 — `research` · `search_legal` · `get_article` · `get_decision` · `neighbors` · `web_search`
 - 스킬 `legal-research` — 도구 호출 순서, 웹 검색을 쓸 때와 안 쓸 때, 「법령명」 제N조 + 시행일 인용 형식
+- 스킬 `contract-review` — 근로·주택 임대차·용역/하도급 계약서를 `contract_review` 도구로 조항별 판정(green·yellow·red)하고 근거 조문·수정 문구·빠진 조항을 정리한다. 전문가 검토용 초안이며 법률 자문이 아니다
 - 커맨드 `/legal-kb:법령` · `/legal-kb:조문` · `/legal-kb:판례` (Claude Code·Desktop 전용)
 
 자세한 내용은 [`plugins/legal-kb/README.md`](plugins/legal-kb/README.md).
