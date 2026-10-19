@@ -1,8 +1,8 @@
 {
   "name": "legal-kb",
   "displayName": "legal-kb",
-  "version": "1.12.1",
-  "description": "한국 국가법령 조문·판례·결정례 검색 도구 6종(research·search_legal·get_article·get_decision·neighbors·web_search), 실무 해설(2차 문헌) 도구 search_commentary, 세액 계산 도구 calculate, 부동산 공부 조회 도구 property_lookup(토지대장·건축물대장·공시가격)·대장 발급 도구 property_issue(정부24 발급본 PDF, 하루 상한), 지방세 시가표준액 조회 도구 standard_value(토지 공시지가·주택가격·주택 외 건축물 건물분 — 지자체 공개 파일 약 90개 시·군·구, 자료 없으면 확인 불가와 위택스 안내), 문서 도구 doc_verify_citations·doc_create·doc_update·doc_verify(인용 검증·개인 문서 만들기·고치기, 문서 권한 동의 필요), 계약서 검토 도구 contract_review(근로·주택 임대차·용역/하도급 계약서를 조항별 green·yellow·red 로 판정, 근거 조문·수정 문구·빠진 조항, 전문가 검토용 초안)와, 그 도구를 어떤 순서로 부르고 어떻게 인용할지 정한 legal-research·contract-review 스킬·슬래시 커맨드 3종. 원격 HTTP MCP 서버이며 설치 후 브라우저 로그인 한 번으로 연결된다. 답변을 생성하지 않고 근거만 돌려준다.",
+  "version": "1.13.0",
+  "description": "한국 국가법령 조문·판례·결정례 검색 도구 6종(research·search_legal·get_article·get_decision·neighbors·web_search), 실무 해설(2차 문헌) 도구 search_commentary, 세액 계산 도구 calculate, 부동산 공부 조회 도구 property_lookup(토지대장·건축물대장·공시가격)·대장 발급 도구 property_issue(정부24 발급본 PDF, 하루 상한), 지방세 시가표준액 조회 도구 standard_value(토지 공시지가·주택가격·주택 외 건축물 건물분 — 지자체 공개 파일 약 90개 시·군·구, 자료 없으면 확인 불가와 위택스 안내), 문서 도구 doc_verify_citations·doc_create·doc_update·doc_verify(인용 검증·개인 문서 만들기·고치기, 문서 권한 동의 필요), 계약서 검토 도구 contract_review(근로·주택/상가 임대차·부동산 매매·건설·용역/하도급·가맹·대리점·유통 납품·비밀유지·물품 공급·프리랜서·예술인·금전소비대차·보증·약관 등 16종 기준표로 조항별 green·yellow·red 판정, 근거 조문·수정 문구·빠진 조항, 전문가 검토용 초안)와, 그 도구를 어떤 순서로 부르고 어떻게 인용할지 정한 legal-research·contract-review 스킬·슬래시 커맨드 3종. 원격 HTTP MCP 서버이며 설치 후 브라우저 로그인 한 번으로 연결된다. 답변을 생성하지 않고 근거만 돌려준다.",
   "author": {
     "name": "risingdream"
   },
