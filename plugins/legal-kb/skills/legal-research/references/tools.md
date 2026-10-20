@@ -64,6 +64,7 @@
 | `document_id` | | `research`의 문서 ID. 부칙(`document_kind=addendum`)은 반드시 넣는다. 법령·조문과 일치해야 하며 다른 문서로 대체 조회하지 않는다 |
 | `as_of` | | 기준일 |
 | `include_scheduled` | | `true` 면 시행예정을 `scheduled` 필드로만 반환 |
+| `history` | | `true` 면 개정 여부 확인(RAG-9976): 시행예정 판(`scheduled`)과 함께 `history`(이 조문 개정 연혁 `article_revisions`·법령 전체 최근 판 `law_editions`·기준일 뒤 시행 법령 판과 바뀌는 조문 `law_scheduled`·요약 `summary`)·`legislative_notices`(국민참여입법센터 최근 입법예고: 제목·소관부처·의견 접수기간·링크)를 싣는다 |
 
 기준일에 시행 중인 개정판이 없고 시행예정만 있으면 `isError: not_in_force`.
 문서 ID로 부칙 시행판을 읽을 때는 `enforced_from`을 `as_of`에 넣는다. 그 판이 없으면 `not_found`다. 이 경로는 `include_scheduled`로 다른 판을 보충하지 않는다.
@@ -126,6 +127,15 @@
 
 응답은 합쳐진 텍스트 `web_text` 한 덩어리와 `sources[]`.
 호출 기준은 `SKILL.md` 의 표를 따른다. 조문 질문에 섞으면 인용할 조문이 밀려난다.
+
+## `web_fetch` — 링크 한 건 읽기 (RAG-9976)
+
+| 인자 | 기본 | 설명 |
+|---|---|---|
+| `url` | (필수) | http·https 공개 주소. 사용자가 준 링크를 그대로 |
+| `max_chars` | `6000` | 본문(`text`) 상한, 최대 12000 |
+
+응답: `title` · `published`(게시일) · `description` · `site` · `text` · `truncated` · `sources`. 사설·내부 주소는 거부하고, 응답 3MB·10초 상한이다. PDF 는 텍스트를 뽑는다. 로그인·스크립트 전용 페이지는 본문이 비거나 짧다(`note`).
 
 ## `search_commentary` — 실무 해설(2차 문헌) (RAG-9049)
 
