@@ -1,7 +1,7 @@
 # legal-kb 도구 — 인자와 응답
 
 `SKILL.md` 가 정한 순서를 따르되, 인자를 정확히 넣어야 할 때 이 파일을 본다.
-값은 서버 `toolDefs()` 실측이다(2026-09-23, `property_lookup`·`property_issue`·`search_commentary` 2026-10-02, 문서 도구 2026-10-03, `standard_value` 2026-10-07).
+값은 서버 `toolDefs()` 실측이다(2026-09-23, `property_lookup`·`property_issue`·`search_commentary` 2026-10-02, 문서 도구 2026-10-03, `standard_value` 2026-10-07). `check_citations`·`scan_law_changes`·`compare_provisions` 는 2026-10-29 구현(RAG-10800·10802·10804) 기준이다.
 
 ## `research` — 처음 부를 도구
 
@@ -77,6 +77,57 @@
 - 근거는 판례 참조조문의 "(현행 제N조 참조)" 표기다. 조문 하나만 가리키면 `relation=successor`(대응 조문),
   여럿을 가리키면 `relation=related`(관련 조문)다. `related` 는 같은 조문이라고 단정하지 않는다.
 - 판례가 구 조문으로 판단한 사건을 현행 조문으로 옮겨 인용할 때 쓴다.
+
+## `scan_law_changes` — 기간 안 개정 판 훑기 (RAG-10802)
+
+법령 묶음(`preset`)이나 법령 목록에서 기간 안에 시행되는(또는 시행된) 개정 판, 그 판에서 바뀌는 조문, 부칙의 다른 시행일, 입법예고를 영향 순으로 준다.
+"올해·내년 바뀌는 ○○세 규정", "○○법 개정 예정", "지난 3개월 시행된 개정" 질문이면 `web_search` 보다 먼저 부른다. 조문 하나의 이력은 `get_article(history=true)` 다.
+
+| 인자 | 기본 | 설명 |
+|---|---|---|
+| `preset` | | 묶음 ID: `cgt` 양도소득세 · `vat` 부가가치세 · `corp` 법인세 · `inheritance_gift` 상속·증여세 · `acquisition` 취득세 · `property_holding` 재산세·종합부동산세 · `withholding` 원천징수·연말정산 · `labor_insurance` 근로·4대보험 · `local_tax_relief` 지방세 감면 · `procedure` 국세기본·징수·조세범. `laws` 와 함께 주면 합친다 |
+| `laws` | | 법령 정식 명칭 목록(시행령·시행규칙은 따로, 최대 30개). 묶음과 합쳐 50개까지. 약칭 ✗ |
+| `articles` | | 특히 보는 조문. `"소득세법 제89조"` · 범위 `"소득세법 제88조~제118조"` · 조문 키 `001565:제89조`. 이 조문이 바뀌는 판이 맨 앞에 오고 `watched_hits` 에 실린다. 법령이 `laws` 에 없으면 보탠다 |
+| `from` | 오늘 | YYYY-MM-DD |
+| `to` | `from`+183일 | YYYY-MM-DD, 최대 2년. 지난 개정은 과거 기간으로 준다 |
+| `include_notices` | `true` | 입법예고 포함. 외부 화면을 읽어 6초 제한, 실패해도 판 결과는 나온다 |
+| `limit` | 20 | 판 개수, 상한 50. 넘친 수는 `more_editions` |
+
+응답: `from`·`to` · `preset` · `laws_checked` · `laws` · `unknown_laws`(KB 에서 못 찾은 이름) · `kb_latest_promulgation`(KB 가 반영한 마지막 공포일) · `editions[]` · `more_editions` · `notices[]`(입법예고: 제목·소관부처·의견 접수기간 `opinion_period`·`url`) · `notices_note` · `summary`.
+`editions[]` 한 건은 (법령, 시행일) 판이다: `law_name` · `law_kind`(`law`·`presidential_decree`·`ministerial_rule`·`other`) · `promulgated_no`·`promulgated_on` · `other_promulgations`(같은 날 함께 시행되는 다른 공포, 옛 공포의 분리시행분 포함) · `enforced_from` · `source`(`revision` KB 판 · `addendum` 부칙 제1조 시행일로만 확인) · `basis` · `changed_articles`·`changed_total` · `watched_hits` · `split_effective[]`(`article_no`·`clause`·`effective_from`·`basis`).
+
+- 정렬은 고른 조문이 바뀌는 판 → 법률 > 시행령 > 시행규칙 → 바뀌는 조문 수 → 가까운 시행일 순이다. 서버가 "영향"을 판단하지 않는다.
+- `changed_articles` 는 조문 번호만 준다. **조문 제목·문언은 없다** — 무엇이 바뀌었는지는 `compare_provisions`, 제목·본문은 `get_article` 로 읽는다. 제목을 짐작해 쓰지 않는다.
+- `source=addendum` 판은 부칙 시행일로만 확인한 것이라 문언은 `get_article(as_of=시행일)` 로 읽는다.
+- KB 는 국가법령정보센터 공포분을 매일 반영한다. 공포·시행 여부는 이 결과가 정본이다 — 여기 없는 판을 "혹시 공포됐나" 웹으로 되풀이해 찾지 않는다. 입법예고(`notices`)는 공포 전 개정안이라 시행이 정해진 것이 아니다. 답에 구분해 쓴다.
+- `split_effective` 가 있는 조문은 판 시행일이 아니라 그 항·호의 시행일을 쓴다.
+
+## `compare_provisions` — 같은 조문 두 판 비교 (RAG-10804)
+
+같은 조문의 두 판(기준일 두 개)을 항·호·목 단위로 맞춰 바뀐 자리를 준다. "개정 전후 무엇이 바뀌었나", "거래일 당시와 지금 조문이 어떻게 다른가" 질문에 쓴다. 서버 LLM 은 쓰지 않는다.
+
+| 인자 | 기본 | 설명 |
+|---|---|---|
+| `article_key` | | 조문 키. 주면 그 조문의 법령명·조번호로 비교한다 |
+| `law_name` · `article_no` | | `article_key` 가 없을 때 둘 다 필요하다. 법령 정식 명칭(시행령·시행규칙은 따로) · `제89조`·`제10조의3` |
+| `before` | `after` 판 바로 앞 판 | 앞 판 기준일 YYYY-MM-DD — 그날 시행 중인 판(거래일·신고 기준일 등) |
+| `after` | 오늘 | 뒤 판 기준일. `"scheduled"` 면 가장 가까운 시행 예정 판 |
+| `changed_only` | `true` | `false` 면 바뀌지 않은 단위(`same`)도 싣는다 |
+
+응답: `law_name`·`article_no`·`heading` · `before`·`after`(각 판 `revision_from`·`revision_to`·`promulgated_no`·`promulgated_on`) · `units[]` · `unchanged_units` · `transition[]`(경과조치·적용례 부칙 `label`·`document_id`) · `summary`.
+`units[]` 한 건: `unit`(예 `제1항제2호`) · `change` · `before`·`after`(단위당 2,000자, 넘으면 `truncated`) · `marks[]`(`op`·`text`, 지운·넣은 어절) · `before_unit`(`renumbered` 의 옛 번호).
+
+| `change` | 뜻 |
+|---|---|
+| `changed` | 문언 변경. `marks` 에 바뀐 어절 |
+| `added` | 신설 |
+| `removed` | 삭제 |
+| `renumbered` | 문언은 그대로이고 번호만 이동(`before_unit` 이 옛 번호) |
+| `same` | 바뀌지 않음(`changed_only=false` 일 때만) |
+
+- 판 목록은 `get_article(history=true)`, 기간 안 개정 판은 `scan_law_changes` 로 먼저 찾는다.
+- 답에는 결과의 문구만 인용하고, 두 판의 시행일을 함께 적는다. 경과조치·적용례는 `transition` 의 부칙을 `get_article(document_id)` 로 확인한다 — 거래일 판이 적용되는지가 여기서 갈린다.
+- 별표는 비교하지 않는다.
 
 ## `get_decision` — 판례·결정례 전문
 
@@ -209,32 +260,50 @@
 - 같은 사용자·같은 물건·같은 대장 종류는 같은 날 다시 발급하지 않고 그날 발급본을 준다(`reused`).
 - 상한(`limit_exceeded`)·미설정(`unavailable`)이면 발급하지 않는다. 링크가 만료되면 도구를 다시 부른다(같은 날이면 재발급 없이 새 링크).
 
-## 문서 도구 — 인용 검증·개인 문서 만들기·고치기 (RAG-9072)
+## `check_citations` — 서면 인용 확인 (RAG-10800)
 
-연결이 문서 권한을 가질 때만 목록에 보인다. 기존 연결(조회만)에는 없다 — 쓰려면 연결을 해지하고 다시 연결해 동의 화면에서 문서 권한을 받거나, 웹 **내 토큰**에서 권한을 골라 새 토큰을 발급한다.
+남이 쓴 서면·의견서·경정청구 이유·답변, 또는 내가 쓴 초안의 법령 조문·판례·결정례·질의회신 인용을 KB 원문과 기준일 판으로 맞춰 본다. **저장하지 않는다.** 서버 LLM 은 쓰지 않는다.
+읽기 도구라 조회 권한(`mcp:read`)만 있는 연결에도 보인다. 사용자가 서면 인용 확인을 요청하면 이 도구를 먼저 부르고, 결과 상태를 그대로 옮긴다.
+
+| 인자 | 기본 | 설명 |
+|---|---|---|
+| `text` | | 본문(마크다운·평문, 최대 200KB, 인용 최대 300개). `citations` 와 둘 중 하나. 인용 바로 앞뒤 같은 문장의 따옴표 구절(“…” "…" ‘…’)은 그 조문 인용의 구절로 묶어 원문과 대조한다. 인용 뒤 "(2023. 1. 1. 시행)"처럼 시행일을 적으면 그 판과 견준다 |
+| `citations` | | 인용 목록(최대 300개). 조문 `{law_name, article_no, clause?, quote?, addenda?, effective_date?}` 또는 판례·결정례·질의회신 `{case_no, decided_on?}`. `effective_date` 를 주면 그 판과 다를 때 `amended`, `decided_on` 을 주면 번호를 못 찾았을 때 그날 선고된 후보가 먼저 온다 |
+| `as_of` | 오늘 | 기준일 YYYY-MM-DD(서면 작성일·과세 시점 등). 과거면 그 뒤 개정(`amended`)도 본다 |
+| `detail` | `issues` | `issues`(문제 인용만, 최대 100건, 넘치면 `more_items`) · `all`(ok 포함 전체) |
+
+응답: `as_of` · `total` · `counts`(상태별 개수) · `items[]` · `more_items` · `note`.
+`items[]` 한 건: `id` · `kind`(`article`·`precedent`·`decision`·`interpretation`(질의회신·해석례)·`unchecked`) · `text`(본문에서 잡은 인용) · `span`(`text` 안 글자 위치, `citations` 로 주면 없음) · `status` · `note` · `resolved`(읽은 판: `law_name`·`article_no`·`revision_from`·`document_id`) · `suggestions[]`(`case_no`·`title`·`decided_on`, 비슷한 실재 사건번호) · `moved_to`(현행 대응 조문) · `quote`·`quote_status`(`ok`·`mismatch`·`unchecked` — 판례 구절은 판정하지 않는다).
+
+| 상태 | 뜻 | 다음 할 일 |
+|---|---|---|
+| `ok` | 기준일 판에 있고 구절도 맞다 | 개수만 알린다 |
+| `not_found` | 기준일 판에 없는 조문·항, 공개 판례에 없는 번호 | 조문은 `get_article` 로 확인. 판례는 `suggestions` 를 보이되 **미공개 사건일 수 있어 "허위"로 단정하지 않는다** |
+| `repealed` | 법령이 기준일에 폐지·실효됐거나 조문이 삭제됨 | 후속 법령을 `research` 로 찾는다 |
+| `moved` | 구 조문 번호 | `moved_to` 의 현행 조문을 알린다 |
+| `amended` | 기준일 판은 맞지만 그 뒤 개정됨(또는 적은 시행일과 판이 다름) | 두 판 차이는 `compare_provisions` |
+| `part_mismatch` | 본칙/부칙 혼동 | 부칙이면 `「법령명」 부칙 제N조` 꼴로 |
+| `text_mismatch` | 따옴표 구절이 원문과 다름(숫자 바뀜·개정 전 문구 등) | `get_article` 원문 구절을 함께 보인다 |
+| `unchecked` | 자동 검증 대상이 아니거나 검증하지 못함 | 직접 확인이 필요하다고 적는다 |
+
+- 인용은 `「법령명」 제N조 제N항 제N호`(부칙은 `「법령명」 부칙 제N조`), 판례·결정례·질의회신은 번호 그대로(`2019두31600`·`조심2020서1582`·`서면-2020-법인-1234`·`법제처 20-0123`) 써야 잡힌다.
+- 옛 이름 `doc_verify_citations` 는 같은 구현을 부르는 호환 이름이다. 도구 목록에는 없고 `tools/call` 로만 받으며, 문서 권한 없이(`mcp:read`) 불린다. 옛 이름으로 부르면 예전 응답 모양(`issues`·`more_issues`, 문제 인용 20건)이 온다. 새로 부를 때는 `check_citations` 를 쓴다.
+
+## 문서 도구 — 개인 문서 만들기·고치기 (RAG-9072)
+
+연결이 문서 권한을 가질 때만 목록에 보인다. 기존 연결(조회만)에는 없다 — 쓰려면 연결을 해지하고 다시 연결해 동의 화면에서 문서 권한을 받거나, 웹 **내 토큰**에서 권한을 골라 새 토큰을 발급한다. 인용 확인만 할 때는 문서 권한 없이 `check_citations` 를 쓴다.
 
 | 도구 | 권한(scope) | 하는 일 |
 |---|---|---|
-| `doc_verify_citations` | `docs:verify` 또는 `docs:write` | 내가 쓴 글의 인용 검증. **저장하지 않는다** |
 | `doc_create` | `docs:write` | 내 개인 문서함에 새 문서(사건 문서는 못 만든다) |
 | `doc_update` | `docs:write` | 내 개인 문서 한 자리를 바로 고침. 직전 본은 판으로 자동 저장 |
 | `doc_verify` | `docs:write` | 저장된 내 문서의 인용을 다시 검증해 문서에 기록 |
 
 - 서버는 글을 쓰지 않는다. 마크다운은 **내가(호출자 모델이) 쓴다**. 서버는 블록으로 바꾸고 인용을 검증(§6.3: `ok`·`not_found`·`text_mismatch`·`part_mismatch`·`amended`)해 저장만 한다.
 - 인용은 문장 안에 `「법령명」 제N조 제N항`(부칙은 `「법령명」 부칙 제N조`), 판례는 사건번호 그대로 쓴다. 이 꼴이 아니면 인용으로 잡히지 않는다.
-- 문서를 쓰기 전에 `doc_verify_citations` 로 초안 인용을 먼저 거른다. `not_found`·`text_mismatch` 는 `get_article`·`get_decision` 으로 확인해 고친 뒤 저장한다. `amended` 는 기준일 판은 맞지만 그 뒤 개정됐다는 경고다.
+- 문서를 쓰기 전에 `check_citations` 로 초안 인용을 먼저 거른다. `not_found`·`text_mismatch` 는 `get_article`·`get_decision` 으로 확인해 고친 뒤 저장한다. `amended` 는 기준일 판은 맞지만 그 뒤 개정됐다는 경고다.
 - 금액 칸은 `calculate` 결과만 `calc` 로 넘긴다(직접 계산한 숫자 금지).
 - 본문을 읽어 오는 도구는 없다. 결과의 `link`(`https://chat.taxdesk.kr/doc/<id>`)로 웹 편집기에서 열어 확인·내려받기(DOCX·PDF·HWPX)한다. 경정청구서 같은 제출 서식은 웹에서 칸 출처를 확인한 뒤 제출하라고 사용자에게 알린다.
-
-### `doc_verify_citations`
-
-| 인자 | 설명 |
-|---|---|
-| `markdown` | 검증할 본문(최대 200KB). `citations` 와 둘 중 하나 |
-| `citations` | `[{law_name, article_no, clause?, quote?, addenda?}]` 또는 `[{case_no}]`(최대 200개) |
-| `as_of` | 기준일 YYYY-MM-DD. 비면 오늘. 과거면 그 뒤 개정(`amended`)도 본다 |
-
-응답: `as_of` · `total` · `counts`(상태별 개수) · `issues`(ok 아닌 인용만 `label`·`status`·`note`) · `note`.
 
 ### `doc_create`
 
@@ -275,6 +344,6 @@
 | `not_in_force` | 기준일에 시행 중인 개정판이 없다 |
 | `unavailable` | 검색기 연결이 없다(서버 측) |
 | `unknown_tool` | 도구 이름 오타 |
-| `insufficient_scope` | 이 연결·토큰에 문서 권한(`docs:verify`·`docs:write`)이 없다 — 다시 연결해 동의하거나 새 토큰 |
+| `insufficient_scope` | 이 연결·토큰에 문서 쓰기 권한(`docs:write`)이 없다(`doc_create`·`doc_update`·`doc_verify`) — 다시 연결해 동의하거나 새 토큰. 인용 확인(`check_citations`)은 권한이 필요 없다 |
 | `rate_limited` | 문서 쓰기 시간당 상한을 넘었다 |
 | `limit_exceeded` | 개인 문서 수 상한(문서 도구)·하루 발급 상한(`property_issue`) |
