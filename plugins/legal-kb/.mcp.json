@@ -2,7 +2,7 @@
   "mcpServers": {
     "legal-kb": {
       "type": "http",
-      "url": "https://chat.taxdesk.kr/mcp"
+      "url": "https://peritia.kr/mcp"
     }
   }
 }

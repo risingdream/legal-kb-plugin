@@ -1,7 +1,7 @@
-# legal-kb 플러그인
+# legal-kb 플러그인 (페리티아)
 
-한국 법령 조문·판례·결정례를 **기준일 기준**으로 찾아 근거 묶음을 돌려주는 원격 MCP 서버를
-Claude Code 에 붙인다. 답변 문장은 만들지 않는다 — 호출한 모델이 쓴다.
+페리티아(Peritia, https://peritia.kr)의 원격 MCP 서버를 Claude Code 에 붙인다. 한국 법령 조문·판례·결정례를
+**기준일 기준**으로 찾아 근거 묶음을 돌려준다. 답변 문장은 만들지 않는다 — 호출한 모델이 쓴다.
 
 ## 설치
 
@@ -77,6 +77,6 @@ claude plugin update legal-kb@legal-kb-plugin
 ## claude.ai 웹 채팅
 
 claude.ai 는 플러그인을 받지 않는다. 사용자 지정 → 커넥터 → 추가에서
-이름 `legal-kb`, URL `https://chat.taxdesk.kr/mcp` 로 등록한다.
-옛 주소 `https://law.tax-insight.kr/mcp` 로 등록한 연결도 계속 동작한다(다시 등록할 필요 없음).
+이름 `legal-kb`, URL `https://peritia.kr/mcp` 로 등록한다.
+옛 주소 `https://law.tax-insight.kr/mcp` 로 등록한 연결도 계속 동작한다(다시 등록할 필요 없음). `chat.taxdesk.kr/mcp` 는 2026-11-05 닫았으니 그 주소로 등록했다면 지우고 새 주소로 다시 등록한다.
 도구 7종은 같고, 스킬·슬래시 커맨드는 붙지 않는다.
