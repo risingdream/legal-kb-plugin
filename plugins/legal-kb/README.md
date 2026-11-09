@@ -7,7 +7,7 @@
 
 ```bash
 claude plugin marketplace add risingdream/legal-kb-plugin
-claude plugin install legal-kb@legal-kb-plugin
+claude plugin install peritia@legal-kb-plugin
 ```
 
 Claude Desktop 은 설정 → 플러그인 → 추가 → 저장소에서 추가 → `risingdream/legal-kb-plugin`.
@@ -63,15 +63,23 @@ judge overall +0.26** 높았다(RAG-8083).
 
 | 커맨드 | 하는 일 |
 |---|---|
-| `/legal-kb:법령 <질의>` | `research` 로 조문·판례 근거를 모아 정리 |
-| `/legal-kb:조문 <법령명> <조문번호>` | `get_article` 로 그 개정판 본문과 시행일. 약칭은 정식 명칭으로 펴서 부른다 |
-| `/legal-kb:판례 <사건번호>` | `get_decision` 으로 전문. 예: `조심 2020서1582` |
+| `/peritia:법령 <질의>` | `research` 로 조문·판례 근거를 모아 정리 |
+| `/peritia:조문 <법령명> <조문번호>` | `get_article` 로 그 개정판 본문과 시행일. 약칭은 정식 명칭으로 펴서 부른다 |
+| `/peritia:판례 <사건번호>` | `get_decision` 으로 전문. 예: `조심 2020서1582` |
 
 ## 업데이트
 
+1.19.0 부터 플러그인 이름이 `peritia` 로 바뀌었습니다. 커맨드는 `/peritia:조문` 처럼 씁니다. 전에 설치했다면 지우고 다시 설치한 뒤 `/mcp` 에서 인증합니다.
+
+```bash
+claude plugin uninstall legal-kb@legal-kb-plugin
+claude plugin marketplace update legal-kb-plugin
+claude plugin install peritia@legal-kb-plugin
+```
+
 ```bash
 claude plugin marketplace update legal-kb-plugin
-claude plugin update legal-kb@legal-kb-plugin
+claude plugin update peritia@legal-kb-plugin
 ```
 
 ## claude.ai 웹 채팅

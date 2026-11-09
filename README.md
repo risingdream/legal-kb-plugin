@@ -10,7 +10,7 @@
 
 | 클라이언트 | 방법 |
 |---|---|
-| Claude Code | `claude plugin marketplace add risingdream/legal-kb-plugin` 후 `claude plugin install legal-kb@legal-kb-plugin` |
+| Claude Code | `claude plugin marketplace add risingdream/legal-kb-plugin` 후 `claude plugin install peritia@legal-kb-plugin` |
 | Claude Desktop (Code·Cowork) | 설정 → 플러그인 → 추가 → 저장소에서 추가 → `risingdream/legal-kb-plugin` |
 | claude.ai 웹 채팅 | 플러그인 대신 커넥터: 사용자 지정 → 커넥터 → 추가 → 이름 `legal-kb`, URL `https://peritia.kr/mcp` |
 
@@ -22,9 +22,17 @@
 
 ## 업데이트
 
+1.19.0 부터 플러그인 이름이 `peritia` 로 바뀌었습니다. 커맨드는 `/peritia:조문` 처럼 씁니다. 전에 설치했다면 지우고 다시 설치한 뒤 `/mcp` 에서 인증합니다.
+
+```bash
+claude plugin uninstall legal-kb@legal-kb-plugin
+claude plugin marketplace update legal-kb-plugin
+claude plugin install peritia@legal-kb-plugin
+```
+
 ```bash
 claude plugin marketplace update legal-kb-plugin
-claude plugin update legal-kb@legal-kb-plugin
+claude plugin update peritia@legal-kb-plugin
 ```
 
 ## 들어 있는 것
@@ -32,7 +40,7 @@ claude plugin update legal-kb@legal-kb-plugin
 - 도구 6종 — `research` · `search_legal` · `get_article` · `get_decision` · `neighbors` · `web_search`
 - 스킬 `legal-research` — 도구 호출 순서, 웹 검색을 쓸 때와 안 쓸 때, 「법령명」 제N조 + 시행일 인용 형식
 - 스킬 `contract-review` — 근로·주택 임대차·용역/하도급 계약서를 `contract_review` 도구로 조항별 판정(green·yellow·red)하고 근거 조문·수정 문구·빠진 조항을 정리한다. 전문가 검토용 초안이며 법률 자문이 아니다
-- 커맨드 `/legal-kb:법령` · `/legal-kb:조문` · `/legal-kb:판례` (Claude Code·Desktop 전용)
+- 커맨드 `/peritia:법령` · `/peritia:조문` · `/peritia:판례` (Claude Code·Desktop 전용)
 
 자세한 내용은 [`plugins/legal-kb/README.md`](plugins/legal-kb/README.md).
 

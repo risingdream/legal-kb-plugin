@@ -320,7 +320,7 @@ description: legal-kb MCP로 한국 국가법령 조문과 판례·결정례를 
 
 ## 슬래시 커맨드
 
-확정된 조회는 커맨드가 더 빠르다. `/legal-kb:법령` (research) · `/legal-kb:조문` (get_article) · `/legal-kb:판례` (get_decision).
+확정된 조회는 커맨드가 더 빠르다. `/peritia:법령` (research) · `/peritia:조문` (get_article) · `/peritia:판례` (get_decision).
 영어 이름 커맨드는 없다.
 
 ## 더 볼 것
