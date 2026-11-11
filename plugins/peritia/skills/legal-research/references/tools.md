@@ -1,4 +1,4 @@
-# legal-kb 도구 — 인자와 응답
+# 페리티아 도구 — 인자와 응답
 
 `SKILL.md` 가 정한 순서를 따르되, 인자를 정확히 넣어야 할 때 이 파일을 본다.
 값은 서버 `toolDefs()` 실측이다(2026-09-23, `property_lookup`·`property_issue`·`search_commentary` 2026-10-02, 문서 도구 2026-10-03, `standard_value` 2026-10-07). `check_citations`·`scan_law_changes`·`compare_provisions` 는 2026-10-29 구현(RAG-10800·10802·10804) 기준이다.

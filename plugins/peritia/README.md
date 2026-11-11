@@ -1,4 +1,4 @@
-# legal-kb 플러그인 (페리티아)
+# 페리티아 플러그인
 
 페리티아(Peritia, https://peritia.kr)의 원격 MCP 서버를 Claude Code 에 붙인다. 한국 법령 조문·판례·결정례를
 **기준일 기준**으로 찾아 근거 묶음을 돌려준다. 답변 문장은 만들지 않는다 — 호출한 모델이 쓴다.
@@ -6,13 +6,13 @@
 ## 설치
 
 ```bash
-claude plugin marketplace add risingdream/legal-kb-plugin
-claude plugin install peritia@legal-kb-plugin
+claude plugin marketplace add risingdream/peritia-plugin
+claude plugin install peritia@peritia-plugin
 ```
 
-Claude Desktop 은 설정 → 플러그인 → 추가 → 저장소에서 추가 → `risingdream/legal-kb-plugin`.
+Claude Desktop 은 설정 → 플러그인 → 추가 → 저장소에서 추가 → `risingdream/peritia-plugin`.
 
-설치 직후 `/mcp` 에서 `legal-kb` 를 고르면 브라우저가 열린다. 로그인하고 허용하면 끝이다.
+설치 직후 `/mcp` 에서 `plugin:peritia:peritia` 를 고르면 브라우저가 열린다. 로그인하고 허용하면 끝이다.
 키를 복사해 붙여넣는 단계는 없다.
 
 **허용 목록에 등록된 계정만** 연결된다. 로그인은 되는데 허용 단계에서 막히면
@@ -27,7 +27,7 @@ Claude Desktop 은 설정 → 플러그인 → 추가 → 저장소에서 추가
 | `get_article` | 법령명+조문번호+기준일로 그 개정판 본문 |
 | `get_decision` | 사건번호로 판례·결정례 전문 |
 | `neighbors` | 본법↔시행령, 조문→판례 연결선 |
-| `web_search` | legal-kb 에 없는 최신 사실(올해 세율·고시·보도자료)만 |
+| `web_search` | 페리티아에 없는 최신 사실(올해 세율·고시·보도자료)만 |
 | `calculate` | 세액·과세표준·공제액 계산. 세율표는 조문에서 꺼내고, 법 숫자는 조문 근거를 확인한다 |
 | `contract_review` | 계약서(근로·주택 임대차·용역/하도급)를 조항별로 green·yellow·red 판정, 근거 조문·수정 문구·빠진 조항. 전문가 검토용 초안 |
 | `check_citations` | 서면·의견서의 조문·판례·결정례 인용을 기준일 판으로 확인(없는 조문·폐지·이동·개정·구절 불일치). 저장하지 않는다 |
@@ -52,7 +52,7 @@ judge overall +0.26** 높았다(RAG-8083).
 
 - `contract_review` 를 먼저 불러 기준표 판정을 받는다 — 모델이 직접 색을 매기지 않는다(노랑→빨강 과잉·정상 조항 오탐 감소, RAG-9728)
 - 근거 원문은 인용할 빨강 조항만 `get_article`·`get_decision` 으로 확인한다
-- 조직(로펌·회사) 협상 기준을 인터뷰로 받아 `~/.claude/plugins/config/legal-kb/contract-playbook.md` 에 두면 노랑·초록 판정에 덧씌운다. 빨강(강행규정 위반)은 낮추지 않는다
+- 조직(로펌·회사) 협상 기준을 인터뷰로 받아 `~/.claude/plugins/config/peritia/contract-playbook.md` 에 두면 노랑·초록 판정에 덧씌운다. 빨강(강행규정 위반)은 낮추지 않는다
 - 구조는 Anthropic claude-for-legal `commercial-legal` 검토 스킬(Apache-2.0)을 참고했다
 
 스킬은 켜지기 전까지 이름과 한 줄 설명(30~50 토큰)만 쓴다. 법률 질문(세법 포함)이 들어올 때만 본문이 실린다.
@@ -69,22 +69,26 @@ judge overall +0.26** 높았다(RAG-8083).
 
 ## 업데이트
 
-1.19.0 부터 플러그인 이름이 `peritia` 로 바뀌었습니다. 커맨드는 `/peritia:조문` 처럼 씁니다. 전에 설치했다면 지우고 다시 설치한 뒤 `/mcp` 에서 인증합니다.
+2.0.0 부터 이름에서 legal-kb 를 뺐습니다. 마켓플레이스는 `peritia-plugin`, MCP 서버는 `peritia` 입니다.
+1.x 를 설치했다면 한 번 지우고 다시 설치한 뒤 `/mcp` → `plugin:peritia:peritia` 에서 인증합니다.
 
 ```bash
-claude plugin uninstall legal-kb@legal-kb-plugin
-claude plugin marketplace update legal-kb-plugin
-claude plugin install peritia@legal-kb-plugin
+claude plugin uninstall peritia@legal-kb-plugin
+claude plugin marketplace remove legal-kb-plugin
+claude plugin marketplace add risingdream/peritia-plugin
+claude plugin install peritia@peritia-plugin
 ```
 
+그 뒤 새 판은 이렇게 받습니다.
+
 ```bash
-claude plugin marketplace update legal-kb-plugin
-claude plugin update peritia@legal-kb-plugin
+claude plugin marketplace update peritia-plugin
+claude plugin update peritia@peritia-plugin
 ```
 
 ## claude.ai 웹 채팅
 
 claude.ai 는 플러그인을 받지 않는다. 사용자 지정 → 커넥터 → 추가에서
-이름 `legal-kb`, URL `https://peritia.kr/mcp` 로 등록한다.
+이름 `페리티아`, URL `https://peritia.kr/mcp` 로 등록한다.
 옛 주소 `law.tax-insight.kr/mcp`·`chat.taxdesk.kr/mcp` 는 2026-11-05 닫았다. 그 주소로 등록했다면 지우고 새 주소로 다시 등록한다.
 도구 7종은 같고, 스킬·슬래시 커맨드는 붙지 않는다.

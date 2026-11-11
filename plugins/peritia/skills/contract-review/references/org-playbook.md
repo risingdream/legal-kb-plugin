@@ -20,7 +20,7 @@
 
 ## 저장 형식
 
-사용자가 허락하면 `~/.claude/plugins/config/legal-kb/contract-playbook.md` 에 쓴다. 다음 검토부터 묻지 않고 읽는다.
+사용자가 허락하면 `~/.claude/plugins/config/peritia/contract-playbook.md` 에 쓴다. 다음 검토부터 묻지 않고 읽는다.
 
 ```markdown
 # 계약 검토 조직 기준

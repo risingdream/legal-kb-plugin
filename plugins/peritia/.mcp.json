@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "legal-kb": {
+    "peritia": {
       "type": "http",
       "url": "https://peritia.kr/mcp"
     }

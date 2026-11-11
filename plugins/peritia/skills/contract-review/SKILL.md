@@ -1,9 +1,9 @@
 ---
 name: contract-review
-description: 계약서 검토 요청이면 contract_review 도구를 부르기 전에 이 스킬을 먼저 읽는다. 계약서 글이나 파일을 받아 조항별로 green·yellow·red 위험도를 판정하고 근거 조문과 수정 문구를 붙여 검토 메모를 쓴다. 근로계약서·임대차계약서·용역계약서·하도급계약서·약관 등 계약서 검토, "이 계약서 검토해줘", "독소조항·불공정 조항 찾아줘", "조항별 위험도", "수정 문구 제안", "빠진 조항", "계약서 검토 메모"에 쓴다. legal-kb 의 contract_review 도구를 먼저 불러 기준표 판정을 받고(직접 판정하지 않는다), 근거 원문이 필요할 때만 get_article·get_decision 으로 확인한다. 조직(로펌·회사)의 협상 기준이 있으면 인터뷰로 받아 노랑·초록 판정에 덧씌운다. 조문 하나의 뜻을 묻는 질문은 legal-research 스킬을 쓴다.
+description: 계약서 검토 요청이면 contract_review 도구를 부르기 전에 이 스킬을 먼저 읽는다. 계약서 글이나 파일을 받아 조항별로 green·yellow·red 위험도를 판정하고 근거 조문과 수정 문구를 붙여 검토 메모를 쓴다. 근로계약서·임대차계약서·용역계약서·하도급계약서·약관 등 계약서 검토, "이 계약서 검토해줘", "독소조항·불공정 조항 찾아줘", "조항별 위험도", "수정 문구 제안", "빠진 조항", "계약서 검토 메모"에 쓴다. 페리티아의 contract_review 도구를 먼저 불러 기준표 판정을 받고(직접 판정하지 않는다), 근거 원문이 필요할 때만 get_article·get_decision 으로 확인한다. 조직(로펌·회사)의 협상 기준이 있으면 인터뷰로 받아 노랑·초록 판정에 덧씌운다. 조문 하나의 뜻을 묻는 질문은 legal-research 스킬을 쓴다.
 ---
 
-# 계약서 검토 (legal-kb)
+# 계약서 검토 (페리티아)
 
 > 구조는 Anthropic [claude-for-legal](https://github.com/anthropics/claude-for-legal) `commercial-legal` 플러그인의
 > `review`·`vendor-agreement-review`·`cold-start-interview` 스킬(Apache License 2.0)을 참고했다 —
@@ -57,7 +57,7 @@ description: 계약서 검토 요청이면 contract_review 도구를 부르기 �
 
 조직(로펌·회사)마다 받아들이는 조건이 다르다 — 지체상금 상한, 대금 지급기일, 비밀유지 기간, 관할 법원 같은 **협상 자리**. 이것을 기준으로 노랑·초록을 다시 볼 수 있다.
 
-- `~/.claude/plugins/config/legal-kb/contract-playbook.md` 가 있으면 읽는다.
+- `~/.claude/plugins/config/peritia/contract-playbook.md` 가 있으면 읽는다.
 - 없고, 사용자가 "우리 기준으로", "조직 기준 설정", "플레이북" 을 말하면 [`references/org-playbook.md`](references/org-playbook.md) 의 인터뷰를 한다(빠른 5문항). 답을 그 파일에 저장해도 되는지 묻고 저장한다.
 - **사용자가 요청하지 않았거나 대화형이 아니면(한 번에 답해야 하는 요청) 묻지 않는다.** 기본 기준표로 진행하고 메모 머리에 "조직 기준 없음 — 기본 기준표 적용"을 적는다.
 
